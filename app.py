@@ -310,9 +310,6 @@ def display_detailed_tables(df):
         if original_col in filtered_df.columns:
             display_columns.append(original_col)
     
-    st.write(f"Debug: Available columns in dataframe: {list(filtered_df.columns)}")
-    st.write(f"Debug: Display columns selected: {display_columns}")
-    
     if display_columns:
         display_df = filtered_df[display_columns].copy()
         
