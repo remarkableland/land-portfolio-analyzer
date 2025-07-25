@@ -434,7 +434,7 @@ def main():
         - **State** (custom.All_State)
         - **Cost Basis** (custom.Asset_Cost_Basis)
         - **Date Purchased** (custom.Asset_Date_Purchased)
-        - **Initial Listing Price** (custom.Asset_Initial_Listing_Price)
+        - **Original Listing Price** (custom.Asset_Original_Listing_Price)
         - **Land ID Internal URL** (custom.Asset_Land_ID_Internal_URL)
         - **Land ID Share URL** (custom.Asset_Land_ID_Share_URL)
         - **MLS#** (custom.Asset_MLS#)
