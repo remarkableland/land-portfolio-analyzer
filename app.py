@@ -343,11 +343,25 @@ def display_detailed_tables(df):
         
         # Don't format the missing_information column - keep it as is for readability
         
-        # Rename columns for display
-        display_df = display_df.rename(columns=column_mapping)
-        
-        # Debug: Show what the column headers actually are
-        st.write("**Debug - Actual column headers after rename:**", list(display_df.columns))
+        # Rename columns for display with updated headers
+        display_df = display_df.rename(columns={
+            'display_name': 'Property Name',
+            'primary_opportunity_status_label': 'Status',
+            'custom.All_State': 'State',
+            'custom.All_County': 'County',
+            'missing_information': 'Missing Information',
+            'custom.Asset_Original_Listing_Price': 'Original Listing Price',
+            'primary_opportunity_value': 'Current Asking Price',
+            'custom.Asset_Cost_Basis': 'Cost Basis',
+            'current_margin': 'Profit Margin',
+            'current_margin_pct': 'Margin',
+            'markup_percentage': 'Markup',
+            'percent_of_initial_listing': '%OLP',
+            'custom.All_Asset_Surveyed_Acres': 'Acres',
+            'price_per_acre': 'Asking Price/Acre',
+            'days_on_market': 'DOM',
+            'price_reductions': 'Price Reductions'
+        })
         
         st.dataframe(display_df, use_container_width=True)
         
