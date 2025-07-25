@@ -346,6 +346,9 @@ def display_detailed_tables(df):
         # Rename columns for display
         display_df = display_df.rename(columns=column_mapping)
         
+        # Debug: Show what the column headers actually are
+        st.write("**Debug - Actual column headers after rename:**", list(display_df.columns))
+        
         st.dataframe(display_df, use_container_width=True)
         
         # Add summary of missing information
