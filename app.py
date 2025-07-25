@@ -246,6 +246,13 @@ def display_detailed_tables(df):
     """Display detailed property information with filtering"""
     st.header("📋 Detailed Property Information")
     
+    # DEBUG: Check if Original Listing Price exists at the start of this function
+    st.write(f"**DEBUG - Start of display_detailed_tables:**")
+    st.write(f"- 'custom.Asset_Original_Listing_Price' in df.columns: {'custom.Asset_Original_Listing_Price' in df.columns}")
+    if 'custom.Asset_Original_Listing_Price' in df.columns:
+        non_null_count = df['custom.Asset_Original_Listing_Price'].notna().sum()
+        st.write(f"- Non-null values in Original Listing Price: {non_null_count}/{len(df)}")
+    
     # Filters
     col1, col2, col3 = st.columns(3)
     
@@ -281,6 +288,10 @@ def display_detailed_tables(df):
         filtered_df = filtered_df[filtered_df['custom.All_State'] == state_filter]
     if county_filter != "All":
         filtered_df = filtered_df[filtered_df['custom.All_County'] == county_filter]
+    
+    # DEBUG: Check if Original Listing Price exists after filtering
+    st.write(f"**DEBUG - After filtering:**")
+    st.write(f"- 'custom.Asset_Original_Listing_Price' in filtered_df.columns: {'custom.Asset_Original_Listing_Price' in filtered_df.columns}")
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
