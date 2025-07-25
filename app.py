@@ -58,7 +58,7 @@ def process_data(df):
     return processed_df
 
 def display_hierarchy_breakdown(df):
-    """Display the Status → State → County hierarchy"""
+    """Display the Status → State → County hierarchy with correct order"""
     st.header("📊 Portfolio Hierarchy: Status → State → County")
     
     # Overall metrics
@@ -84,13 +84,20 @@ def display_hierarchy_breakdown(df):
     
     st.divider()
     
-    # Hierarchical breakdown
+    # Hierarchical breakdown with CORRECT ORDER
     if 'primary_opportunity_status_label' in df.columns:
-        # Level 1: By Status
+        # Define the desired order for opportunity status
+        status_order = ['Purchased', 'Listed', 'Under Contract']
+        
+        # Get unique statuses and sort them by our preferred order
+        available_statuses = df['primary_opportunity_status_label'].unique()
+        ordered_statuses = [status for status in status_order if status in available_statuses]
+        
+        # Level 1: By Status (in correct order)
         st.subheader("🎯 Level 1: By Opportunity Status")
         
         status_summary = []
-        for status in df['primary_opportunity_status_label'].unique():
+        for status in ordered_statuses:
             if pd.notna(status):
                 status_df = df[df['primary_opportunity_status_label'] == status]
                 summary = {
@@ -105,8 +112,8 @@ def display_hierarchy_breakdown(df):
         if status_summary:
             st.dataframe(pd.DataFrame(status_summary), use_container_width=True)
         
-        # Level 2 & 3: Expandable State and County breakdown
-        for status in df['primary_opportunity_status_label'].unique():
+        # Level 2 & 3: Expandable State and County breakdown (in correct order)
+        for status in ordered_statuses:
             if pd.notna(status):
                 status_df = df[df['primary_opportunity_status_label'] == status]
                 
@@ -138,17 +145,30 @@ def display_hierarchy_breakdown(df):
                                         st.dataframe(pd.DataFrame(county_summary), use_container_width=True)
 
 def create_visualizations(df):
-    """Create portfolio visualizations"""
+    """Create portfolio visualizations with correct status order"""
     st.header("📈 Portfolio Visualizations")
     
     col1, col2 = st.columns(2)
     
-    # Status distribution
+    # Status distribution (with correct order)
     with col1:
         if 'primary_opportunity_status_label' in df.columns:
             st.subheader("Distribution by Status")
+            
+            # Define order and get counts in that order
+            status_order = ['Purchased', 'Listed', 'Under Contract']
             status_counts = df['primary_opportunity_status_label'].value_counts()
-            fig = px.pie(values=status_counts.values, names=status_counts.index)
+            
+            # Reorder according to our preference
+            ordered_labels = []
+            ordered_values = []
+            for status in status_order:
+                if status in status_counts.index:
+                    ordered_labels.append(status)
+                    ordered_values.append(status_counts[status])
+            
+            fig = px.pie(values=ordered_values, names=ordered_labels,
+                        color_discrete_sequence=['#2E8B57', '#4169E1', '#FF6347'])  # Green, Blue, Red
             st.plotly_chart(fig, use_container_width=True)
     
     # State distribution
@@ -157,12 +177,103 @@ def create_visualizations(df):
             st.subheader("Distribution by State")
             state_counts = df['custom.All_State'].value_counts()
             fig = px.bar(x=state_counts.index, y=state_counts.values, 
-                        labels={'x': 'State', 'y': 'Properties'})
+                        labels={'x': 'State', 'y': 'Properties'},
+                        color=state_counts.values,
+                        color_continuous_scale='viridis')
             st.plotly_chart(fig, use_container_width=True)
+
+def display_detailed_tables(df):
+    """Display detailed property information with filtering"""
+    st.header("📋 Detailed Property Information")
+    
+    # Filters
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        status_filter = st.selectbox(
+            "Filter by Opportunity Status",
+            ["All"] + ['Purchased', 'Listed', 'Under Contract']
+        )
+    
+    with col2:
+        if 'custom.All_State' in df.columns:
+            state_filter = st.selectbox(
+                "Filter by State",
+                ["All"] + sorted(df['custom.All_State'].unique().tolist())
+            )
+        else:
+            state_filter = "All"
+    
+    with col3:
+        if 'custom.All_County' in df.columns:
+            county_filter = st.selectbox(
+                "Filter by County",
+                ["All"] + sorted(df['custom.All_County'].unique().tolist())
+            )
+        else:
+            county_filter = "All"
+    
+    # Apply filters
+    filtered_df = df.copy()
+    if status_filter != "All":
+        filtered_df = filtered_df[filtered_df['primary_opportunity_status_label'] == status_filter]
+    if state_filter != "All":
+        filtered_df = filtered_df[filtered_df['custom.All_State'] == state_filter]
+    if county_filter != "All":
+        filtered_df = filtered_df[filtered_df['custom.All_County'] == county_filter]
+    
+    st.subheader(f"Showing {len(filtered_df)} properties")
+    
+    # Select key columns for display
+    display_columns = []
+    column_mapping = {
+        'display_name': 'Property Name',
+        'primary_opportunity_status_label': 'Status',
+        'custom.All_State': 'State',
+        'custom.All_County': 'County',
+        'primary_opportunity_value': 'Current Value',
+        'custom.Asset_Cost_Basis': 'Cost Basis',
+        'current_margin': 'Margin ($)',
+        'current_margin_pct': 'Margin (%)',
+        'custom.All_Asset_Surveyed_Acres': 'Acres',
+        'price_per_acre': 'Price/Acre',
+        'days_on_market': 'Days on Market',
+        'price_reductions': 'Price Reductions'
+    }
+    
+    # Only include columns that exist in the dataframe
+    for original_col, display_col in column_mapping.items():
+        if original_col in filtered_df.columns:
+            display_columns.append(original_col)
+    
+    if display_columns:
+        display_df = filtered_df[display_columns].copy()
+        
+        # Format currency columns
+        currency_columns = ['primary_opportunity_value', 'custom.Asset_Cost_Basis', 'current_margin', 'price_per_acre']
+        for col in currency_columns:
+            if col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "N/A")
+        
+        # Format percentage columns
+        if 'current_margin_pct' in display_df.columns:
+            display_df['current_margin_pct'] = display_df['current_margin_pct'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A")
+        
+        # Format numeric columns
+        numeric_columns = ['custom.All_Asset_Surveyed_Acres', 'days_on_market', 'price_reductions']
+        for col in numeric_columns:
+            if col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+        
+        # Rename columns for display
+        display_df = display_df.rename(columns=column_mapping)
+        
+        st.dataframe(display_df, use_container_width=True)
 
 def main():
     st.title("🏞️ Land Portfolio Analyzer")
-    st.markdown("### Hierarchical Analysis: Opportunity Status → State → County")
+    st.markdown("### Hierarchical Analysis: Status → State → County")
+    st.markdown("**Status Order**: Purchased → Listed → Under Contract")
     
     uploaded_file = st.file_uploader("Upload your CRM CSV export", type=['csv'])
     
@@ -174,7 +285,7 @@ def main():
             # Process the data
             processed_df = process_data(df)
             
-            # Main analysis
+            # Main hierarchy analysis
             display_hierarchy_breakdown(processed_df)
             
             st.divider()
@@ -182,22 +293,36 @@ def main():
             # Visualizations
             create_visualizations(processed_df)
             
+            st.divider()
+            
+            # Detailed tables with filtering
+            display_detailed_tables(processed_df)
+            
             # Raw data preview
             with st.expander("🔍 Raw Data Preview"):
                 st.dataframe(processed_df.head(10), use_container_width=True)
                 
         except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.error(f"Error processing file: {str(e)}")
+            st.write("Please check that your CSV file contains the expected columns.")
     else:
         st.info("👆 Upload your CSV file to begin analysis")
         
         st.markdown("""
+        ### Expected Data Structure
+        Your CSV should include these key fields:
+        - `primary_opportunity_status_label` - Status (Purchased, Listed, Under Contract)
+        - `custom.All_State` - State location  
+        - `custom.All_County` - County location
+        - `primary_opportunity_value` - Current value
+        - `custom.Asset_Cost_Basis` - Original cost
+        - `custom.All_Asset_Surveyed_Acres` - Property size
+        - `custom.Asset_MLS_Listing_Date` - Listing date for DOM calculation
+        
         ### Price Reduction System
-        Automatically calculated from trailing digit:
-        - **9**: No reductions
-        - **8**: 1 reduction  
-        - **7**: 2 reductions
-        - **6**: 3 reductions
+        Automatically calculated from trailing digit of current value:
+        - **9**: No reductions | **8**: 1 reduction | **7**: 2 reductions
+        - **6**: 3 reductions | **5**: 4 reductions | **4**: 5 reductions
         - And so on...
         """)
 
