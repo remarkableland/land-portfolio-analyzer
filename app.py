@@ -31,13 +31,50 @@ def calculate_days_on_market(row):
     except:
         return None
 
+def check_missing_information(row):
+    """Check for missing required fields and return status"""
+    # Define required fields with your specific list
+    required_fields = {
+        'custom.All_APN': 'APN',
+        'custom.All_Asset_Surveyed_Acres': 'Surveyed Acres',
+        'custom.All_County': 'County',
+        'custom.All_RemarkableLand_URL': 'RemarkableLand URL',
+        'custom.All_State': 'State',
+        'custom.Asset_Cost_Basis': 'Cost Basis',
+        'custom.Asset_Date_Purchased': 'Date Purchased',
+        'custom.Asset_Initial_Listing_Price': 'Initial Listing Price',
+        'custom.Asset_Land_ID_Internal_URL': 'Land ID Internal URL',
+        'custom.Asset_Land_ID_Share_URL': 'Land ID Share URL',
+        'custom.Asset_MLS#': 'MLS#',
+        'custom.Asset_MLS_Listing_Date': 'MLS Listing Date',
+        'custom.Asset_Street_Address': 'Street Address',
+        'avg_one_time_active_opportunity_value': 'Avg One Time Active Opportunity Value'
+    }
+    
+    missing_fields = []
+    
+    for field_key, field_name in required_fields.items():
+        if field_key in row.index:
+            value = row[field_key]
+            # Check if value is missing, null, empty, or 'Unknown'
+            if pd.isna(value) or value == '' or value == 'Unknown' or value == 'Unknown County':
+                missing_fields.append(field_name)
+        else:
+            # Field doesn't exist in dataset
+            missing_fields.append(field_name)
+    
+    if not missing_fields:
+        return "✅ Complete"
+    else:
+        return "❌ Missing: " + ", ".join(missing_fields)
+
 def process_data(df):
     """Process and clean the uploaded data"""
     processed_df = df.copy()
     
     # Clean and standardize data
     if 'custom.All_County' in processed_df.columns:
-        processed_df['custom.All_County'] = processed_df['custom.All_County'].fillna('Unknown')
+        processed_df['custom.All_County'] = processed_df['custom.All_County'].fillna('Unknown County')
         processed_df['custom.All_County'] = processed_df['custom.All_County'].astype(str).str.title()
     
     # Calculate metrics
@@ -54,6 +91,9 @@ def process_data(df):
     # Price per acre
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
         processed_df['price_per_acre'] = processed_df['primary_opportunity_value'] / processed_df['custom.All_Asset_Surveyed_Acres']
+    
+    # Check missing information for each property
+    processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
     
     return processed_df
 
@@ -78,9 +118,11 @@ def display_hierarchy_breakdown(df):
             st.metric("Total Cost Basis", f"${total_cost:,.0f}")
     
     with col4:
-        if 'current_margin' in df.columns:
-            total_margin = df['current_margin'].sum()
-            st.metric("Total Margin", f"${total_margin:,.0f}")
+        # Show data completeness metrics
+        if 'missing_information' in df.columns:
+            complete_count = len(df[df['missing_information'] == '✅ Complete'])
+            completion_rate = (complete_count / len(df)) * 100
+            st.metric("Data Complete", f"{complete_count}/{len(df)} ({completion_rate:.0f}%)")
     
     st.divider()
     
@@ -126,19 +168,27 @@ def display_hierarchy_breakdown(df):
                             if pd.notna(state):
                                 state_df = status_df[status_df['custom.All_State'] == state]
                                 
-                                st.write(f"**{state}** ({len(state_df)} properties)")
+                                # Count complete vs incomplete properties in this state
+                                complete_count = len(state_df[state_df['missing_information'] == '✅ Complete'])
+                                incomplete_count = len(state_df) - complete_count
+                                
+                                st.write(f"**{state}** ({len(state_df)} properties | ✅ {complete_count} complete | ❌ {incomplete_count} incomplete)")
                                 
                                 if 'custom.All_County' in state_df.columns:
                                     county_summary = []
                                     for county in sorted(state_df['custom.All_County'].unique()):
                                         if pd.notna(county):
                                             county_df = state_df[state_df['custom.All_County'] == county]
+                                            complete_county = len(county_df[county_df['missing_information'] == '✅ Complete'])
+                                            incomplete_county = len(county_df) - complete_county
+                                            
                                             county_summary.append({
                                                 'County': county,
                                                 'Properties': len(county_df),
+                                                'Complete': f"✅ {complete_county}",
+                                                'Incomplete': f"❌ {incomplete_county}" if incomplete_county > 0 else "✅ 0",
                                                 'Total Value': f"${county_df['primary_opportunity_value'].sum():,.0f}" if 'primary_opportunity_value' in county_df.columns else 'N/A',
-                                                'Avg Acres': f"{county_df['custom.All_Asset_Surveyed_Acres'].mean():.1f}" if 'custom.All_Asset_Surveyed_Acres' in county_df.columns else 'N/A',
-                                                'Avg Price/Acre': f"${county_df['price_per_acre'].mean():,.0f}" if 'price_per_acre' in county_df.columns and county_df['price_per_acre'].notna().any() else 'N/A'
+                                                'Avg Acres': f"{county_df['custom.All_Asset_Surveyed_Acres'].mean():.1f}" if 'custom.All_Asset_Surveyed_Acres' in county_df.columns else 'N/A'
                                             })
                                     
                                     if county_summary:
@@ -231,6 +281,7 @@ def display_detailed_tables(df):
         'primary_opportunity_status_label': 'Status',
         'custom.All_State': 'State',
         'custom.All_County': 'County',
+        'missing_information': 'Missing Information',
         'primary_opportunity_value': 'Current Value',
         'custom.Asset_Cost_Basis': 'Cost Basis',
         'current_margin': 'Margin ($)',
@@ -265,10 +316,51 @@ def display_detailed_tables(df):
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
         
+        # Don't format the missing_information column - keep it as is for readability
+        
         # Rename columns for display
         display_df = display_df.rename(columns=column_mapping)
         
         st.dataframe(display_df, use_container_width=True)
+        
+        # Add summary of missing information
+        if 'missing_information' in filtered_df.columns:
+            st.subheader("📊 Data Completeness Summary")
+            complete_count = len(filtered_df[filtered_df['missing_information'] == '✅ Complete'])
+            incomplete_count = len(filtered_df) - complete_count
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Complete Properties", f"{complete_count}/{len(filtered_df)}")
+            with col2:
+                completion_rate = (complete_count / len(filtered_df)) * 100 if len(filtered_df) > 0 else 0
+                st.metric("Completion Rate", f"{completion_rate:.1f}%")
+            with col3:
+                st.metric("Incomplete Properties", incomplete_count)
+                
+            # Show most common missing fields
+            if incomplete_count > 0:
+                st.write("**Most Common Missing Fields:**")
+                incomplete_props = filtered_df[filtered_df['missing_information'] != '✅ Complete']
+                missing_fields_list = []
+                for missing_info in incomplete_props['missing_information']:
+                    if missing_info.startswith('❌ Missing: '):
+                        fields = missing_info.replace('❌ Missing: ', '').split(', ')
+                        missing_fields_list.extend(fields)
+                
+                if missing_fields_list:
+                    from collections import Counter
+                    field_counts = Counter(missing_fields_list)
+                    missing_summary = []
+                    for field, count in field_counts.most_common():
+                        percentage = (count / len(filtered_df)) * 100
+                        missing_summary.append({
+                            'Missing Field': field,
+                            'Properties Missing': count,
+                            'Percentage': f"{percentage:.1f}%"
+                        })
+                    
+                    st.dataframe(pd.DataFrame(missing_summary), use_container_width=True)
 
 def main():
     st.title("🏞️ Land Portfolio Analyzer")
@@ -309,15 +401,21 @@ def main():
         st.info("👆 Upload your CSV file to begin analysis")
         
         st.markdown("""
-        ### Expected Data Structure
-        Your CSV should include these key fields:
-        - `primary_opportunity_status_label` - Status (Purchased, Listed, Under Contract)
-        - `custom.All_State` - State location  
-        - `custom.All_County` - County location
-        - `primary_opportunity_value` - Current value
-        - `custom.Asset_Cost_Basis` - Original cost
-        - `custom.All_Asset_Surveyed_Acres` - Property size
-        - `custom.Asset_MLS_Listing_Date` - Listing date for DOM calculation
+        ### Required Fields for Complete Data
+        - **APN** (custom.All_APN)
+        - **Surveyed Acres** (custom.All_Asset_Surveyed_Acres)
+        - **County** (custom.All_County)
+        - **RemarkableLand URL** (custom.All_RemarkableLand_URL)
+        - **State** (custom.All_State)
+        - **Cost Basis** (custom.Asset_Cost_Basis)
+        - **Date Purchased** (custom.Asset_Date_Purchased)
+        - **Initial Listing Price** (custom.Asset_Initial_Listing_Price)
+        - **Land ID Internal URL** (custom.Asset_Land_ID_Internal_URL)
+        - **Land ID Share URL** (custom.Asset_Land_ID_Share_URL)
+        - **MLS#** (custom.Asset_MLS#)
+        - **MLS Listing Date** (custom.Asset_MLS_Listing_Date)
+        - **Street Address** (custom.Asset_Street_Address)
+        - **Avg One Time Active Opportunity Value** (avg_one_time_active_opportunity_value)
         
         ### Price Reduction System
         Automatically calculated from trailing digit of current value:
