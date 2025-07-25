@@ -92,9 +92,10 @@ def process_data(df):
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
         processed_df['price_per_acre'] = processed_df['primary_opportunity_value'] / processed_df['custom.All_Asset_Surveyed_Acres']
     
-    # Calculate markup percentage (Current Asking Price divided by Cost Basis)
+    # Calculate markup percentage (Current Asking Price minus Cost Basis divided by Cost Basis)
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
-        processed_df['markup_percentage'] = (processed_df['primary_opportunity_value'] / processed_df['custom.Asset_Cost_Basis'] * 100)
+        processed_df['markup_percentage'] = ((processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']) / 
+                                           processed_df['custom.Asset_Cost_Basis'] * 100)
     
     # Calculate percent of original listing price (Current Asking Price vs Original Listing Price)
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
@@ -334,9 +335,11 @@ def display_detailed_tables(df):
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
         
-        # Format price reductions with X suffix and no decimals
+        # Format price reductions with lowercase x suffix and "none" for zero reductions
         if 'price_reductions' in display_df.columns:
-            display_df['price_reductions'] = display_df['price_reductions'].apply(lambda x: f"{x:.0f}X" if pd.notna(x) else "N/A")
+            display_df['price_reductions'] = display_df['price_reductions'].apply(
+                lambda x: "none" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
+            )
         
         # Don't format the missing_information column - keep it as is for readability
         
