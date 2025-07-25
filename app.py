@@ -335,10 +335,10 @@ def display_detailed_tables(df):
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
         
-        # Format price reductions with lowercase x suffix and "none" for zero reductions
+        # Format price reductions with dash for none, lowercase x for reductions
         if 'price_reductions' in display_df.columns:
             display_df['price_reductions'] = display_df['price_reductions'].apply(
-                lambda x: "none" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
+                lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
             )
         
         # Don't format the missing_information column - keep it as is for readability
