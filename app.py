@@ -42,7 +42,7 @@ def check_missing_information(row):
         'custom.All_State': 'State',
         'custom.Asset_Cost_Basis': 'Cost Basis',
         'custom.Asset_Date_Purchased': 'Date Purchased',
-        'custom.Asset_Initial_Listing_Price': 'Original Listing Price',
+        'custom.Asset_Original_Listing_Price': 'Original Listing Price',
         'custom.Asset_Land_ID_Internal_URL': 'Land ID Internal URL',
         'custom.Asset_Land_ID_Share_URL': 'Land ID Share URL',
         'custom.Asset_MLS#': 'MLS#',
@@ -97,9 +97,9 @@ def process_data(df):
         processed_df['markup_percentage'] = (processed_df['primary_opportunity_value'] / processed_df['custom.Asset_Cost_Basis'] * 100)
     
     # Calculate percent of original listing price (Current Asking Price vs Original Listing Price)
-    if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Initial_Listing_Price']):
+    if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
         processed_df['percent_of_initial_listing'] = (processed_df['primary_opportunity_value'] / 
-                                                     processed_df['custom.Asset_Initial_Listing_Price'] * 100)
+                                                     processed_df['custom.Asset_Original_Listing_Price'] * 100)
     
     # Check missing information for each property
     processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
@@ -299,7 +299,7 @@ def display_detailed_tables(df):
         'markup_percentage': 'Markup %',
         'percent_of_initial_listing': 'Percent of Original Listing %',
         'custom.All_Asset_Surveyed_Acres': 'Acres',
-        'price_per_acre': 'Price/Acre',
+        'price_per_acre': 'Asking Price Per Acre',
         'days_on_market': 'Days on Market',
         'price_reductions': 'Price Reductions'
     }
@@ -313,7 +313,7 @@ def display_detailed_tables(df):
         display_df = filtered_df[display_columns].copy()
         
         # Format currency columns
-        currency_columns = ['custom.Asset_Initial_Listing_Price', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'current_margin', 'price_per_acre']
+        currency_columns = ['custom.Asset_Original_Listing_Price', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'current_margin', 'price_per_acre']
         for col in currency_columns:
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "N/A")
@@ -329,10 +329,14 @@ def display_detailed_tables(df):
             display_df['current_margin_pct'] = display_df['current_margin_pct'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "N/A")
         
         # Format numeric columns
-        numeric_columns = ['custom.All_Asset_Surveyed_Acres', 'days_on_market', 'price_reductions']
+        numeric_columns = ['custom.All_Asset_Surveyed_Acres', 'days_on_market']
         for col in numeric_columns:
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+        
+        # Format price reductions with X suffix and no decimals
+        if 'price_reductions' in display_df.columns:
+            display_df['price_reductions'] = display_df['price_reductions'].apply(lambda x: f"{x:.0f}X" if pd.notna(x) else "N/A")
         
         # Don't format the missing_information column - keep it as is for readability
         
