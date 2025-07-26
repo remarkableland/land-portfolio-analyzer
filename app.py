@@ -379,6 +379,20 @@ def display_detailed_tables(df):
                 lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
             )
         
+        # Color-code the Status column with emojis and formatting
+        if 'primary_opportunity_status_label' in display_df.columns:
+            def format_status(status):
+                if status == 'Purchased':
+                    return f'✅ {status}'     # Green checkmark
+                elif status == 'Listed':
+                    return f'🔵 {status}'     # Blue circle
+                elif status == 'Under Contract':
+                    return f'🟠 {status}'     # Orange circle
+                else:
+                    return status
+            
+            display_df['primary_opportunity_status_label'] = display_df['primary_opportunity_status_label'].apply(format_status)
+        
         # Rename columns for display with updated headers
         display_df = display_df.rename(columns={
             'display_name': 'Property Name',
