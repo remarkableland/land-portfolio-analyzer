@@ -388,7 +388,12 @@ def process_data(df):
         processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
         
         # Process Close.com lead counts
-        processed_df = process_lead_counts(processed_df)
+        try:
+            processed_df = process_lead_counts(processed_df)
+        except Exception as e:
+            st.warning(f"Could not process Close.com lead data: {str(e)}")
+            processed_df['lead_count'] = 0
+            processed_df['lead_query_status'] = "Error"
         
         return processed_df
         
