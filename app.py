@@ -322,6 +322,17 @@ def display_detailed_tables(df):
             display_columns.append(original_col)
     
     if display_columns:
+        # FORCE include Original Listing Price if it exists
+        if 'custom.Asset_Original_Listing_Price' in filtered_df.columns and 'custom.Asset_Original_Listing_Price' not in display_columns:
+            # Find the position of 'primary_opportunity_value' and insert before it
+            try:
+                pos = display_columns.index('primary_opportunity_value')
+                display_columns.insert(pos, 'custom.Asset_Original_Listing_Price')
+                st.write("**MANUAL FIX: Added Original Listing Price to display_columns**")
+            except ValueError:
+                display_columns.append('custom.Asset_Original_Listing_Price')
+                st.write("**MANUAL FIX: Appended Original Listing Price to display_columns**")
+        
         display_df = filtered_df[display_columns].copy()
         
         # Format currency columns
