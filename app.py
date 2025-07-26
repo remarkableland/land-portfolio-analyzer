@@ -276,6 +276,31 @@ def display_detailed_tables(df):
     if county_filter != "All":
         filtered_df = filtered_df[filtered_df['custom.All_County'] == county_filter]
     
+    # Apply default sort order: Status (custom order), State (alphabetical), County (alphabetical)
+    if len(filtered_df) > 0:
+        # Create a status order mapping for sorting
+        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3}
+        
+        # Add temporary sort column for status ordering
+        if 'primary_opportunity_status_label' in filtered_df.columns:
+            filtered_df['_status_sort'] = filtered_df['primary_opportunity_status_label'].map(status_order_map).fillna(999)
+        
+        # Sort by: Status (custom order), State (alphabetical), County (alphabetical)
+        sort_columns = []
+        if 'primary_opportunity_status_label' in filtered_df.columns:
+            sort_columns.append('_status_sort')
+        if 'custom.All_State' in filtered_df.columns:
+            sort_columns.append('custom.All_State')
+        if 'custom.All_County' in filtered_df.columns:
+            sort_columns.append('custom.All_County')
+        
+        if sort_columns:
+            filtered_df = filtered_df.sort_values(sort_columns, ascending=True)
+        
+        # Remove the temporary sort column
+        if '_status_sort' in filtered_df.columns:
+            filtered_df = filtered_df.drop('_status_sort', axis=1)
+    
     st.subheader(f"Showing {len(filtered_df)} properties")
     
     # Select key columns for display - NEW ORDER with alignment
