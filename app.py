@@ -23,17 +23,46 @@ st.set_page_config(
 )
 
 # Close.com API Configuration
+# NOTE: This API key appears to be invalid (401 Unauthorized error)
+# You'll need to get a valid API key from Close.com
 CLOSE_API_KEY = "api_74RFzgOQpU0hdtf3tHZyWK.4OlJ6xHkGeq8ez1ZkJApdP"
 CLOSE_API_BASE = "https://api.close.com/api/v1"
+
+# Add API key input in sidebar for easy updating
+def get_api_key():
+    """Get API key from sidebar input or use default"""
+    with st.sidebar:
+        st.subheader("🔑 Close.com API Configuration")
+        api_key = st.text_input(
+            "Close.com API Key", 
+            value=CLOSE_API_KEY,
+            type="password",
+            help="Enter your Close.com API key. Get it from Close.com Settings > API Keys"
+        )
+        if api_key != CLOSE_API_KEY:
+            st.info("✅ Using custom API key")
+        else:
+            st.warning("⚠️ Using default API key (may be invalid)")
+        
+        st.markdown("""
+        **How to get your API key:**
+        1. Log in to Close.com
+        2. Go to Settings > API Keys
+        3. Create a new API key
+        4. Copy and paste it above
+        """)
+    return api_key
 
 def query_close_leads_by_apn(apn):
     """Query Close.com for leads matching specific APN"""
     if pd.isna(apn) or apn == '' or str(apn).strip() == '':
         return {"count": 0, "status": "No APN", "debug": "Empty APN"}
     
+    api_key = get_api_key()
+    
     try:
         headers = {
-            "Authorization": f"Bearer {CLOSE_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
@@ -68,6 +97,17 @@ def query_close_leads_by_apn(apn):
                             },
                             timeout=10
                         )
+                        
+                        # Handle authentication errors
+                        if response.status_code == 401:
+                            return {
+                                "count": 0,
+                                "status": "Auth Error",
+                                "debug": {
+                                    "error": "401 Unauthorized - Invalid API key",
+                                    "message": "Please update your Close.com API key in the sidebar"
+                                }
+                            }
                         
                         response.raise_for_status()
                         data = response.json()
@@ -162,9 +202,11 @@ def query_close_leads_by_apn(apn):
 
 def test_close_api_connection():
     """Test Close.com API connection and show available fields"""
+    api_key = get_api_key()
+    
     try:
         headers = {
-            "Authorization": f"Bearer {CLOSE_API_KEY}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json"
         }
         
@@ -175,6 +217,20 @@ def test_close_api_connection():
             params={"_limit": 5},  # Just get 5 leads to examine
             timeout=10
         )
+        
+        # Handle authentication errors specifically
+        if response.status_code == 401:
+            return {
+                "success": False,
+                "error": "Authentication failed",
+                "message": "The API key is invalid or expired. Please check your Close.com API key.",
+                "instructions": [
+                    "1. Log in to Close.com",
+                    "2. Go to Settings > API Keys", 
+                    "3. Create a new API key or verify the existing one",
+                    "4. Enter the correct API key in the sidebar"
+                ]
+            }
         
         response.raise_for_status()
         data = response.json()
@@ -214,7 +270,8 @@ def test_close_api_connection():
     except Exception as e:
         return {
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "api_key_used": api_key[:10] + "..." if len(api_key) > 10 else api_key
         }
 
 def process_lead_counts(df):
