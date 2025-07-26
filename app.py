@@ -4,14 +4,6 @@ import numpy as np
 import plotly.express as px
 from datetime import datetime
 from io import BytesIO
-import requests
-import re
-import time
-try:
-    from bs4 import BeautifulSoup
-    BS4_AVAILABLE = True
-except ImportError:
-    BS4_AVAILABLE = False
 try:
     from reportlab.lib.pagesizes import letter, A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -27,246 +19,6 @@ st.set_page_config(
     page_icon="🏞️",
     layout="wide"
 )
-
-def fetch_zillow_data(url):
-    """Fetch views and saves data from Zillow URL"""
-    if not BS4_AVAILABLE:
-        return {"views": "Library missing", "saves": "Library missing", "status": "BeautifulSoup not available"}
-    
-    if pd.isna(url) or url == '' or not isinstance(url, str):
-        return {"views": "N/A", "saves": "N/A", "status": "No URL"}
-    
-    try:
-        # Add delay to be respectful to Zillow's servers
-        time.sleep(2)  # Increased delay
-        
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none'
-        }
-        
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # Initialize results
-        views = "N/A"
-        saves = "N/A"
-        
-        # Enhanced patterns to look for views/saves data
-        page_text = soup.get_text().lower()
-        
-        # Multiple view patterns
-        view_patterns = [
-            r'(\d{1,6})\s*views?',
-            r'viewed\s*(\d{1,6})\s*times?',
-            r'(\d{1,6})\s*page\s*views?',
-            r'views?\s*(\d{1,6})',
-            r'(\d{1,6})\s*people\s*viewed',
-            r'seen\s*by\s*(\d{1,6})',
-            r'interest\s*(\d{1,6})',
-            r'(\d{1,6})\s*interested'
-        ]
-        
-        # Multiple save/favorite patterns
-        save_patterns = [
-            r'(\d{1,6})\s*saves?',
-            r'saved\s*(\d{1,6})\s*times?',
-            r'(\d{1,6})\s*favorites?',
-            r'(\d{1,6})\s*hearts?',
-            r'favorited\s*(\d{1,6})',
-            r'(\d{1,6})\s*people\s*saved',
-            r'bookmarked\s*(\d{1,6})',
-            r'(\d{1,6})\s*bookmarks?'
-        ]
-        
-        # Try to find views
-        for pattern in view_patterns:
-            match = re.search(pattern, page_text, re.IGNORECASE)
-            if match:
-                potential_views = match.group(1)
-                # Validate it's a reasonable number (not too high)
-                if int(potential_views) < 1000000:  # Less than 1M views
-                    views = potential_views
-                    break
-        
-        # Try to find saves
-        for pattern in save_patterns:
-            match = re.search(pattern, page_text, re.IGNORECASE)
-            if match:
-                potential_saves = match.group(1)
-                # Validate it's a reasonable number
-                if int(potential_saves) < 100000:  # Less than 100K saves
-                    saves = potential_saves
-                    break
-        
-        # Look for specific HTML elements with common Zillow classes/IDs
-        view_selectors = [
-            '[data-testid*="view"]',
-            '[class*="view"]',
-            '[id*="view"]',
-            'span:contains("view")',
-            'div:contains("view")'
-        ]
-        
-        save_selectors = [
-            '[data-testid*="save"]',
-            '[data-testid*="favorite"]',
-            '[class*="save"]',
-            '[class*="favorite"]',
-            'span:contains("save")',
-            'span:contains("favorite")'
-        ]
-        
-        # Try CSS selectors if regex didn't work
-        if views == "N/A":
-            for selector in view_selectors:
-                try:
-                    elements = soup.select(selector)
-                    for element in elements:
-                        text = element.get_text().lower()
-                        match = re.search(r'(\d{1,6})', text)
-                        if match and 'view' in text:
-                            views = match.group(1)
-                            break
-                    if views != "N/A":
-                        break
-                except:
-                    continue
-        
-        if saves == "N/A":
-            for selector in save_selectors:
-                try:
-                    elements = soup.select(selector)
-                    for element in elements:
-                        text = element.get_text().lower()
-                        match = re.search(r'(\d{1,6})', text)
-                        if match and ('save' in text or 'favorite' in text):
-                            saves = match.group(1)
-                            break
-                    if saves != "N/A":
-                        break
-                except:
-                    continue
-        
-        status = "Success" if views != "N/A" or saves != "N/A" else "No data found"
-        
-        return {
-            "views": views,
-            "saves": saves,
-            "status": status
-        }
-        
-    except requests.exceptions.RequestException as e:
-        return {"views": "Request Error", "saves": "Request Error", "status": f"Request failed: {str(e)[:30]}"}
-    except Exception as e:
-        return {"views": "Parse Error", "saves": "Parse Error", "status": f"Error: {str(e)[:30]}"}
-
-def process_zillow_data(df):
-    """Process Zillow URLs and add views/saves data"""
-    # Initialize columns first
-    df['zillow_views'] = "N/A"
-    df['zillow_saves'] = "N/A"
-    df['zillow_status'] = "Not processed"
-    
-    if not BS4_AVAILABLE:
-        st.warning("⚠️ BeautifulSoup library not available. Zillow data extraction disabled.")
-        st.info("💡 **Manual Entry Option**: You can manually enter Zillow data in the table below if needed.")
-        df['zillow_views'] = "Library missing"
-        df['zillow_saves'] = "Library missing"
-        df['zillow_status'] = "Library missing"
-        return df
-        
-    if 'custom.Asset_Zillow_URL' not in df.columns:
-        df['zillow_views'] = "No Zillow column"
-        df['zillow_saves'] = "No Zillow column"
-        df['zillow_status'] = "No Zillow column"
-        return df
-    
-    # Only process rows that have Zillow URLs
-    zillow_rows = df[df['custom.Asset_Zillow_URL'].notna() & 
-                    (df['custom.Asset_Zillow_URL'] != '') & 
-                    (df['custom.Asset_Zillow_URL'] != 'nan')].index
-    
-    if len(zillow_rows) > 0:
-        # Show manual entry option
-        st.info("🌐 **Zillow Data Options:**")
-        
-        # Show properties with Zillow URLs for manual entry
-        st.subheader("📝 Manual Entry (Recommended)")
-        st.write("Click the Zillow links below to view the listings and manually enter the data:")
-        
-        for idx in zillow_rows:
-            property_name = df.loc[idx, 'display_name'] if 'display_name' in df.columns else f"Property {idx}"
-            zillow_url = df.loc[idx, 'custom.Asset_Zillow_URL']
-            
-            with st.container():
-                st.write(f"**{property_name}**")
-                st.markdown(f"[🔗 Open Zillow Listing in New Tab]({zillow_url})")
-                
-                col_views, col_saves, col_status = st.columns(3)
-                with col_views:
-                    manual_views = st.text_input(f"Views", key=f"views_{idx}", placeholder="e.g., 127", help="Number of times viewed on Zillow")
-                with col_saves:
-                    manual_saves = st.text_input(f"Saves", key=f"saves_{idx}", placeholder="e.g., 23", help="Number of times saved/favorited")
-                with col_status:
-                    if st.button(f"Update Data", key=f"update_{idx}", type="secondary"):
-                        df.loc[idx, 'zillow_views'] = manual_views if manual_views else "N/A"
-                        df.loc[idx, 'zillow_saves'] = manual_saves if manual_saves else "N/A"
-                        df.loc[idx, 'zillow_status'] = "Manual entry"
-                        st.success("Updated!")
-                        st.rerun()
-                
-                st.divider()
-        
-        # Automatic extraction as secondary option
-        st.subheader("🤖 Automatic Extraction (May Not Work)")
-        st.warning("⚠️ Automatic extraction often fails due to Zillow's bot protection. Manual entry above is recommended.")
-        
-        if st.button("🤖 Try Automatic Extraction", type="secondary"):
-            st.info(f"🔍 Processing {len(zillow_rows)} Zillow URL(s) for views and saves data...")
-            
-            progress_bar = st.progress(0)
-            
-            for i, idx in enumerate(zillow_rows):
-                url = df.loc[idx, 'custom.Asset_Zillow_URL']
-                
-                # Update progress
-                progress = (i + 1) / len(zillow_rows)
-                progress_bar.progress(progress)
-                
-                # Fetch data
-                try:
-                    zillow_data = fetch_zillow_data(url)
-                    df.loc[idx, 'zillow_views'] = zillow_data['views']
-                    df.loc[idx, 'zillow_saves'] = zillow_data['saves']
-                    df.loc[idx, 'zillow_status'] = zillow_data['status']
-                except Exception as e:
-                    df.loc[idx, 'zillow_views'] = "Error"
-                    df.loc[idx, 'zillow_saves'] = "Error"
-                    df.loc[idx, 'zillow_status'] = f"Error: {str(e)[:30]}"
-            
-            progress_bar.empty()
-            st.rerun()
-    else:
-        st.info("ℹ️ No Zillow URLs found in the data.")
-    
-    return df
-    """Count price reductions based on trailing digit"""
-    if pd.isna(price) or price == 0:
-        return 0
-    
-    trailing_digit = int(str(int(price))[-1])
-    reduction_map = {9: 0, 8: 1, 7: 2, 6: 3, 5: 4, 4: 5, 3: 6, 2: 7, 1: 8, 0: 9}
-    return reduction_map.get(trailing_digit, 0)
 
 def calculate_days_on_market(row):
     """Calculate days on market from MLS listing date"""
@@ -423,9 +175,6 @@ def process_data(df):
         # Check missing information for each property
         processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
         
-        # Process Zillow data if URLs exist
-        processed_df = process_zillow_data(processed_df)
-        
         return processed_df
         
     except Exception as e:
@@ -441,8 +190,6 @@ def process_data(df):
         basic_df['cost_basis_per_acre'] = 0
         basic_df['percent_of_initial_listing'] = 0
         basic_df['missing_information'] = "Error processing"
-        basic_df['zillow_views'] = "N/A"
-        basic_df['zillow_saves'] = "N/A"
         return basic_df
 
 def display_hierarchy_breakdown(df):
@@ -827,7 +574,7 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display - NEW ORDER with APN, Last Mapping Audit, and Zillow data added
+    # Select key columns for display
     desired_columns = [
         'display_name',                         # Property Name (Left)
         'primary_opportunity_status_label',     # Status (Left)
@@ -847,8 +594,6 @@ def display_detailed_tables(df):
         'days_on_market',                       # DOM (Center)
         'price_reductions',                     # Price Reductions (Center)
         'custom.Asset_Last_Mapping_Audit',     # Last Mapping Audit (Center)
-        'zillow_views',                         # Zillow Views (Center)
-        'zillow_saves',                         # Zillow Saves (Center)
         'missing_information'                   # Missing Information (Left)
     ]
     
@@ -901,6 +646,12 @@ def display_detailed_tables(df):
         if 'days_on_market' in display_df.columns:
             display_df['days_on_market'] = display_df['days_on_market'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
         
+        # Format price reductions with dash for none, lowercase x for reductions
+        if 'price_reductions' in display_df.columns:
+            display_df['price_reductions'] = display_df['price_reductions'].apply(
+                lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
+            )
+        
         # Format Last Mapping Audit date with 60-day warning
         if 'custom.Asset_Last_Mapping_Audit' in display_df.columns:
             def format_audit_date(date_val):
@@ -921,12 +672,6 @@ def display_detailed_tables(df):
                     return str(date_val)  # Return as-is if parsing fails
             
             display_df['custom.Asset_Last_Mapping_Audit'] = display_df['custom.Asset_Last_Mapping_Audit'].apply(format_audit_date)
-        
-        # Format price reductions with dash for none, lowercase x for reductions
-        if 'price_reductions' in display_df.columns:
-            display_df['price_reductions'] = display_df['price_reductions'].apply(
-                lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
-            )
         
         # Color-code the Status column with emojis (Streamlit dataframes don't support HTML)
         if 'primary_opportunity_status_label' in display_df.columns:
@@ -962,8 +707,6 @@ def display_detailed_tables(df):
             'days_on_market': 'DOM',
             'price_reductions': 'Price Reductions',
             'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
-            'zillow_views': 'Zillow Views',
-            'zillow_saves': 'Zillow Saves',
             'missing_information': 'Missing Information'
         })
         
@@ -988,9 +731,7 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* DOM */
         .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
         .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Map Audit */
-        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: center !important; } /* Zillow Views */
-        .dataframe th:nth-child(20), .dataframe td:nth-child(20) { text-align: center !important; } /* Zillow Saves */
-        .dataframe th:nth-child(21), .dataframe td:nth-child(21) { text-align: left !important; }   /* Missing Information */
+        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
         </style>
         """, unsafe_allow_html=True)
         
@@ -1104,8 +845,6 @@ def main():
         - **Avg One Time Active Opportunity Value** (avg_one_time_active_opportunity_value)
         
         **Note**: To use PDF generation, install reportlab: `pip install reportlab`
-        
-        **Note**: To use Zillow data extraction, install beautifulsoup4: `pip install beautifulsoup4`
         
         ### Price Reduction System
         Automatically calculated from trailing digit of current value:
