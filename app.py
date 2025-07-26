@@ -375,28 +375,30 @@ def display_detailed_tables(df):
             'missing_information': 'Missing Information'
         })
         
-        # Display table with column configuration for alignment
-        column_config = {
-            'Property Name': st.column_config.TextColumn('Property Name', width='medium'),
-            'Status': st.column_config.TextColumn('Status', width='small'),
-            'State': st.column_config.TextColumn('State', width='small'),
-            'County': st.column_config.TextColumn('County', width='small'),
-            'Acres': st.column_config.NumberColumn('Acres', width='small'),
-            'Current Asking Price': st.column_config.TextColumn('Current Asking Price', width='medium'),
-            'Cost Basis': st.column_config.TextColumn('Cost Basis', width='medium'),
-            'Profit Margin': st.column_config.TextColumn('Profit Margin', width='medium'),
-            'Margin': st.column_config.TextColumn('Margin', width='small'),
-            'Markup': st.column_config.TextColumn('Markup', width='small'),
-            'Asking Price/Acre': st.column_config.TextColumn('Asking Price/Acre', width='medium'),
-            'Cost Basis/Acre': st.column_config.TextColumn('Cost Basis/Acre', width='medium'),
-            'Original Listing Price': st.column_config.TextColumn('Original Listing Price', width='medium'),
-            '%OLP': st.column_config.TextColumn('%OLP', width='small'),
-            'DOM': st.column_config.TextColumn('DOM', width='small'),
-            'Price Reductions': st.column_config.TextColumn('Price Reductions', width='small'),
-            'Missing Information': st.column_config.TextColumn('Missing Information', width='large')
-        }
+        # Display table with custom CSS for column alignment
+        st.markdown("""
+        <style>
+        .dataframe th:nth-child(1), .dataframe td:nth-child(1) { text-align: left !important; }    /* Property Name */
+        .dataframe th:nth-child(2), .dataframe td:nth-child(2) { text-align: left !important; }    /* Status */
+        .dataframe th:nth-child(3), .dataframe td:nth-child(3) { text-align: left !important; }    /* State */
+        .dataframe th:nth-child(4), .dataframe td:nth-child(4) { text-align: left !important; }    /* County */
+        .dataframe th:nth-child(5), .dataframe td:nth-child(5) { text-align: right !important; }   /* Acres */
+        .dataframe th:nth-child(6), .dataframe td:nth-child(6) { text-align: right !important; }   /* Current Asking Price */
+        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: right !important; }   /* Cost Basis */
+        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Profit Margin */
+        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: center !important; }  /* Margin */
+        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: center !important; } /* Markup */
+        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: right !important; }  /* Asking Price/Acre */
+        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: right !important; }  /* Cost Basis/Acre */
+        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Original Listing Price */
+        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: center !important; } /* %OLP */
+        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* DOM */
+        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* Price Reductions */
+        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: left !important; }   /* Missing Information */
+        </style>
+        """, unsafe_allow_html=True)
         
-        st.dataframe(display_df, use_container_width=True, column_config=column_config)
+        st.dataframe(display_df, use_container_width=True)
         
         # Add summary of missing information
         if 'missing_information' in filtered_df.columns:
