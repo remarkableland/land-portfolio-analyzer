@@ -303,12 +303,13 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display - NEW ORDER with alignment
+    # Select key columns for display - NEW ORDER with APN added
     desired_columns = [
         'display_name',                         # Property Name (Left)
         'primary_opportunity_status_label',     # Status (Left)
         'custom.All_State',                     # State (Left)
         'custom.All_County',                    # County (Left)
+        'custom.All_APN',                       # APN (Left)
         'custom.All_Asset_Surveyed_Acres',      # Acres (Right)
         'primary_opportunity_value',            # Current Asking Price (Right)
         'custom.Asset_Cost_Basis',              # Cost Basis (Right)
@@ -399,6 +400,7 @@ def display_detailed_tables(df):
             'primary_opportunity_status_label': 'Status',
             'custom.All_State': 'State',
             'custom.All_County': 'County',
+            'custom.All_APN': 'APN',
             'custom.All_Asset_Surveyed_Acres': 'Acres',
             'primary_opportunity_value': 'Current Asking Price',
             'custom.Asset_Cost_Basis': 'Cost Basis',
