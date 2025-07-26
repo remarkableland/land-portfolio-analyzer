@@ -151,6 +151,8 @@ def test_close_api_connection():
             "success": False,
             "error": str(e)
         }
+
+def process_lead_counts(df):
     """Add lead count data from Close.com to the dataframe"""
     # Initialize lead count column
     df['lead_count'] = 0
