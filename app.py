@@ -239,46 +239,84 @@ def process_data(df):
         # Calculate days on market first
         processed_df['days_on_market'] = processed_df.apply(calculate_days_on_market, axis=1)
         
-        # Calculate metrics
+        # Calculate metrics with better error handling
+        processed_df['price_reductions'] = 0  # Default value
         if 'primary_opportunity_value' in processed_df.columns:
-            processed_df['price_reductions'] = processed_df['primary_opportunity_value'].apply(count_price_reductions)
-        else:
-            processed_df['price_reductions'] = 0
+            try:
+                processed_df['price_reductions'] = processed_df['primary_opportunity_value'].apply(count_price_reductions)
+            except Exception as e:
+                st.warning(f"Could not calculate price reductions: {str(e)}")
+                processed_df['price_reductions'] = 0
         
-        # Financial calculations
+        # Financial calculations with better error handling
+        processed_df['current_margin'] = 0
+        processed_df['current_margin_pct'] = 0
         if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
-            processed_df['current_margin'] = processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']
-            # CORRECTED: Margin % = (Current Price - Cost Basis) / Current Price × 100
-            processed_df['current_margin_pct'] = (processed_df['current_margin'] / processed_df['primary_opportunity_value'] * 100)
-        else:
-            processed_df['current_margin'] = 0
-            processed_df['current_margin_pct'] = 0
+            try:
+                # Ensure numeric data types
+                processed_df['primary_opportunity_value'] = pd.to_numeric(processed_df['primary_opportunity_value'], errors='coerce').fillna(0)
+                processed_df['custom.Asset_Cost_Basis'] = pd.to_numeric(processed_df['custom.Asset_Cost_Basis'], errors='coerce').fillna(0)
+                
+                processed_df['current_margin'] = processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']
+                # Avoid division by zero
+                mask = processed_df['primary_opportunity_value'] != 0
+                processed_df.loc[mask, 'current_margin_pct'] = (processed_df.loc[mask, 'current_margin'] / processed_df.loc[mask, 'primary_opportunity_value'] * 100)
+            except Exception as e:
+                st.warning(f"Could not calculate financial metrics: {str(e)}")
+                processed_df['current_margin'] = 0
+                processed_df['current_margin_pct'] = 0
         
-        # Price per acre
+        # Price per acre with better error handling
+        processed_df['price_per_acre'] = 0
         if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
-            processed_df['price_per_acre'] = processed_df['primary_opportunity_value'] / processed_df['custom.All_Asset_Surveyed_Acres']
-        else:
-            processed_df['price_per_acre'] = 0
+            try:
+                # Ensure numeric data types
+                processed_df['custom.All_Asset_Surveyed_Acres'] = pd.to_numeric(processed_df['custom.All_Asset_Surveyed_Acres'], errors='coerce').fillna(1)
+                
+                # Avoid division by zero
+                mask = processed_df['custom.All_Asset_Surveyed_Acres'] != 0
+                processed_df.loc[mask, 'price_per_acre'] = processed_df.loc[mask, 'primary_opportunity_value'] / processed_df.loc[mask, 'custom.All_Asset_Surveyed_Acres']
+            except Exception as e:
+                st.warning(f"Could not calculate price per acre: {str(e)}")
+                processed_df['price_per_acre'] = 0
         
-        # Calculate markup percentage (Current Asking Price minus Cost Basis divided by Cost Basis)
+        # Calculate markup percentage with better error handling
+        processed_df['markup_percentage'] = 0
         if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
-            processed_df['markup_percentage'] = ((processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']) / 
-                                               processed_df['custom.Asset_Cost_Basis'] * 100)
-        else:
-            processed_df['markup_percentage'] = 0
+            try:
+                # Avoid division by zero
+                mask = processed_df['custom.Asset_Cost_Basis'] != 0
+                processed_df.loc[mask, 'markup_percentage'] = ((processed_df.loc[mask, 'primary_opportunity_value'] - processed_df.loc[mask, 'custom.Asset_Cost_Basis']) / 
+                                                              processed_df.loc[mask, 'custom.Asset_Cost_Basis'] * 100)
+            except Exception as e:
+                st.warning(f"Could not calculate markup percentage: {str(e)}")
+                processed_df['markup_percentage'] = 0
         
-        # Calculate cost basis per acre
+        # Calculate cost basis per acre with better error handling
+        processed_df['cost_basis_per_acre'] = 0
         if all(col in processed_df.columns for col in ['custom.Asset_Cost_Basis', 'custom.All_Asset_Surveyed_Acres']):
-            processed_df['cost_basis_per_acre'] = processed_df['custom.Asset_Cost_Basis'] / processed_df['custom.All_Asset_Surveyed_Acres']
-        else:
-            processed_df['cost_basis_per_acre'] = 0
+            try:
+                # Avoid division by zero
+                mask = processed_df['custom.All_Asset_Surveyed_Acres'] != 0
+                processed_df.loc[mask, 'cost_basis_per_acre'] = processed_df.loc[mask, 'custom.Asset_Cost_Basis'] / processed_df.loc[mask, 'custom.All_Asset_Surveyed_Acres']
+            except Exception as e:
+                st.warning(f"Could not calculate cost basis per acre: {str(e)}")
+                processed_df['cost_basis_per_acre'] = 0
         
-        # Calculate percent of original listing price
+        # Calculate percent of original listing price with better error handling
+        processed_df['percent_of_initial_listing'] = 0
         if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
-            processed_df['percent_of_initial_listing'] = (processed_df['primary_opportunity_value'] / 
-                                                         processed_df['custom.Asset_Original_Listing_Price'] * 100)
-        else:
-            processed_df['percent_of_initial_listing'] = 0
+            try:
+                # Ensure numeric data types
+                processed_df['custom.Asset_Original_Listing_Price'] = pd.to_numeric(processed_df['custom.Asset_Original_Listing_Price'], errors='coerce').fillna(1)
+                
+                # Avoid division by zero
+                mask = processed_df['custom.Asset_Original_Listing_Price'] != 0
+                processed_df.loc[mask, 'percent_of_initial_listing'] = (processed_df.loc[mask, 'primary_opportunity_value'] / 
+                                                                       processed_df.loc[mask, 'custom.Asset_Original_Listing_Price'] * 100)
+            except Exception as e:
+                st.warning(f"Could not calculate percent of initial listing: {str(e)}")
+                processed_df['percent_of_initial_listing'] = 0
         
         # Check missing information for each property
         processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
