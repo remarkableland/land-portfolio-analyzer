@@ -453,7 +453,7 @@ def main():
             st.divider()
             
             # Detailed tables with filtering
-            display_detailed_tables(processed_df)
+            display_detailed_tables(processed_df)https://github.com/remarkableland/land-portfolio-analyzer/blob/main/app.py
             
             # Raw data preview
             with st.expander("🔍 Raw Data Preview"):
