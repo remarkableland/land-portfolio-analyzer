@@ -57,6 +57,7 @@ def check_missing_information(row):
         'custom.Asset_MLS#': 'MLS#',
         'custom.Asset_MLS_Listing_Date': 'MLS Listing Date',
         'custom.Asset_Street_Address': 'Street Address',
+        'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
         'avg_one_time_active_opportunity_value': 'Avg One Time Active Opportunity Value'
     }
     
@@ -572,7 +573,7 @@ def display_detailed_tables(df):
         if 'days_on_market' in display_df.columns:
             display_df['days_on_market'] = display_df['days_on_market'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
         
-        # Format Last Mapping Audit date
+        # Format Last Mapping Audit date with 60-day warning
         if 'custom.Asset_Last_Mapping_Audit' in display_df.columns:
             def format_audit_date(date_val):
                 if pd.isna(date_val) or date_val == '':
@@ -580,7 +581,14 @@ def display_detailed_tables(df):
                 try:
                     # Try to parse the date and format it nicely
                     parsed_date = pd.to_datetime(date_val)
-                    return parsed_date.strftime('%m/%d/%Y')
+                    formatted_date = parsed_date.strftime('%m/%d/%Y')
+                    
+                    # Check if more than 60 days old
+                    days_old = (datetime.now() - parsed_date).days
+                    if days_old > 60:
+                        return f"🔴 {formatted_date}"
+                    else:
+                        return formatted_date
                 except:
                     return str(date_val)  # Return as-is if parsing fails
             
@@ -625,7 +633,7 @@ def display_detailed_tables(df):
             'percent_of_initial_listing': '%OLP',
             'days_on_market': 'DOM',
             'price_reductions': 'Price Reductions',
-            'custom.Asset_Last_Mapping_Audit': 'Last Audit',
+            'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
             'missing_information': 'Missing Information'
         })
         
@@ -649,7 +657,7 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* %OLP */
         .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* DOM */
         .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
-        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Audit */
+        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Map Audit */
         .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
         </style>
         """, unsafe_allow_html=True)
