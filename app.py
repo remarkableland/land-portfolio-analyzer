@@ -317,12 +317,19 @@ def display_detailed_tables(df):
     if display_columns:
         # FORCE include Original Listing Price if it exists
         if 'custom.Asset_Original_Listing_Price' in filtered_df.columns and 'custom.Asset_Original_Listing_Price' not in display_columns:
-            # Find the position of 'primary_opportunity_value' and insert before it
             try:
                 pos = display_columns.index('primary_opportunity_value')
                 display_columns.insert(pos, 'custom.Asset_Original_Listing_Price')
             except ValueError:
                 display_columns.append('custom.Asset_Original_Listing_Price')
+        
+        # FORCE include Cost Basis per Acre if it exists
+        if 'cost_basis_per_acre' in filtered_df.columns and 'cost_basis_per_acre' not in display_columns:
+            try:
+                pos = display_columns.index('current_margin')
+                display_columns.insert(pos, 'cost_basis_per_acre')
+            except ValueError:
+                display_columns.append('cost_basis_per_acre')
         
         display_df = filtered_df[display_columns].copy()
         
