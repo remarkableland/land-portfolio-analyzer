@@ -5,9 +5,13 @@ import plotly.express as px
 from datetime import datetime
 from io import BytesIO
 import requests
-from bs4 import BeautifulSoup
 import re
 import time
+try:
+    from bs4 import BeautifulSoup
+    BS4_AVAILABLE = True
+except ImportError:
+    BS4_AVAILABLE = False
 try:
     from reportlab.lib.pagesizes import letter, A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -26,6 +30,9 @@ st.set_page_config(
 
 def fetch_zillow_data(url):
     """Fetch views and saves data from Zillow URL"""
+    if not BS4_AVAILABLE:
+        return {"views": "N/A", "saves": "N/A", "status": "BeautifulSoup not available"}
+    
     if pd.isna(url) or url == '' or not isinstance(url, str):
         return {"views": "N/A", "saves": "N/A", "status": "No URL"}
     
@@ -112,6 +119,13 @@ def fetch_zillow_data(url):
 
 def process_zillow_data(df):
     """Process Zillow URLs and add views/saves data"""
+    if not BS4_AVAILABLE:
+        st.warning("⚠️ BeautifulSoup library not available. Zillow data extraction disabled. Install with: pip install beautifulsoup4")
+        df['zillow_views'] = "N/A"
+        df['zillow_saves'] = "N/A"
+        df['zillow_status'] = "Library missing"
+        return df
+        
     if 'custom.Asset_Zillow_URL' not in df.columns:
         df['zillow_views'] = "N/A"
         df['zillow_saves'] = "N/A"
@@ -918,6 +932,8 @@ def main():
         - **Avg One Time Active Opportunity Value** (avg_one_time_active_opportunity_value)
         
         **Note**: To use PDF generation, install reportlab: `pip install reportlab`
+        
+        **Note**: To use Zillow data extraction, install beautifulsoup4: `pip install beautifulsoup4`
         
         ### Price Reduction System
         Automatically calculated from trailing digit of current value:
