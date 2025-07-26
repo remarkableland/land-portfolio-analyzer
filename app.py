@@ -500,7 +500,7 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display - NEW ORDER with APN added
+    # Select key columns for display - NEW ORDER with APN and Last Mapping Audit added
     desired_columns = [
         'display_name',                         # Property Name (Left)
         'primary_opportunity_status_label',     # Status (Left)
@@ -519,6 +519,7 @@ def display_detailed_tables(df):
         'percent_of_initial_listing',           # %OLP (Center)
         'days_on_market',                       # DOM (Center)
         'price_reductions',                     # Price Reductions (Center)
+        'custom.Asset_Last_Mapping_Audit',     # Last Mapping Audit (Center)
         'missing_information'                   # Missing Information (Left)
     ]
     
@@ -571,6 +572,20 @@ def display_detailed_tables(df):
         if 'days_on_market' in display_df.columns:
             display_df['days_on_market'] = display_df['days_on_market'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
         
+        # Format Last Mapping Audit date
+        if 'custom.Asset_Last_Mapping_Audit' in display_df.columns:
+            def format_audit_date(date_val):
+                if pd.isna(date_val) or date_val == '':
+                    return "N/A"
+                try:
+                    # Try to parse the date and format it nicely
+                    parsed_date = pd.to_datetime(date_val)
+                    return parsed_date.strftime('%m/%d/%Y')
+                except:
+                    return str(date_val)  # Return as-is if parsing fails
+            
+            display_df['custom.Asset_Last_Mapping_Audit'] = display_df['custom.Asset_Last_Mapping_Audit'].apply(format_audit_date)
+        
         # Format price reductions with dash for none, lowercase x for reductions
         if 'price_reductions' in display_df.columns:
             display_df['price_reductions'] = display_df['price_reductions'].apply(
@@ -610,6 +625,7 @@ def display_detailed_tables(df):
             'percent_of_initial_listing': '%OLP',
             'days_on_market': 'DOM',
             'price_reductions': 'Price Reductions',
+            'custom.Asset_Last_Mapping_Audit': 'Last Audit',
             'missing_information': 'Missing Information'
         })
         
@@ -620,19 +636,21 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(2), .dataframe td:nth-child(2) { text-align: left !important; }    /* Status */
         .dataframe th:nth-child(3), .dataframe td:nth-child(3) { text-align: left !important; }    /* State */
         .dataframe th:nth-child(4), .dataframe td:nth-child(4) { text-align: left !important; }    /* County */
-        .dataframe th:nth-child(5), .dataframe td:nth-child(5) { text-align: right !important; }   /* Acres */
-        .dataframe th:nth-child(6), .dataframe td:nth-child(6) { text-align: right !important; }   /* Current Asking Price */
-        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: right !important; }   /* Cost Basis */
-        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Profit Margin */
-        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: center !important; }  /* Margin */
-        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: center !important; } /* Markup */
-        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: right !important; }  /* Asking Price/Acre */
-        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: right !important; }  /* Cost Basis/Acre */
-        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Original Listing Price */
-        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: center !important; } /* %OLP */
-        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* DOM */
-        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* Price Reductions */
-        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: left !important; }   /* Missing Information */
+        .dataframe th:nth-child(5), .dataframe td:nth-child(5) { text-align: left !important; }    /* APN */
+        .dataframe th:nth-child(6), .dataframe td:nth-child(6) { text-align: right !important; }   /* Acres */
+        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: right !important; }   /* Current Asking Price */
+        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Cost Basis */
+        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: right !important; }   /* Profit Margin */
+        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: center !important; } /* Margin */
+        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: center !important; } /* Markup */
+        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: right !important; }  /* Asking Price/Acre */
+        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Cost Basis/Acre */
+        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: right !important; }  /* Original Listing Price */
+        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* %OLP */
+        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* DOM */
+        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
+        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Audit */
+        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
         </style>
         """, unsafe_allow_html=True)
         
