@@ -181,11 +181,11 @@ def process_zillow_data(df):
 
 def calculate_days_on_market(row):
     """Calculate days on market from MLS listing date"""
-    listing_date = row.get('custom.Asset_MLS_Listing_Date')
-    if pd.isna(listing_date):
-        return None
-    
     try:
+        listing_date = row.get('custom.Asset_MLS_Listing_Date')
+        if pd.isna(listing_date):
+            return None
+        
         listing_dt = pd.to_datetime(listing_date)
         return (datetime.now() - listing_dt).days
     except:
@@ -228,57 +228,82 @@ def check_missing_information(row):
 
 def process_data(df):
     """Process and clean the uploaded data"""
-    processed_df = df.copy()
-    
-    # Clean and standardize data
-    if 'custom.All_County' in processed_df.columns:
-        processed_df['custom.All_County'] = processed_df['custom.All_County'].fillna('Unknown County')
-        processed_df['custom.All_County'] = processed_df['custom.All_County'].astype(str).str.title()
-    
-    # Calculate metrics
-    if 'primary_opportunity_value' in processed_df.columns:
-        processed_df['price_reductions'] = processed_df['primary_opportunity_value'].apply(count_price_reductions)
-    else:
-        processed_df['price_reductions'] = 0
-    
-    processed_df['days_on_market'] = processed_df.apply(calculate_days_on_market, axis=1)
-    
-    # Financial calculations
-    if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
-        processed_df['current_margin'] = processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']
-        # CORRECTED: Margin % = (Current Price - Cost Basis) / Current Price × 100
-        processed_df['current_margin_pct'] = (processed_df['current_margin'] / processed_df['primary_opportunity_value'] * 100)
-    else:
-        processed_df['current_margin'] = 0
-        processed_df['current_margin_pct'] = 0
-    
-    # Price per acre
-    if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
-        processed_df['price_per_acre'] = processed_df['primary_opportunity_value'] / processed_df['custom.All_Asset_Surveyed_Acres']
-    else:
-        processed_df['price_per_acre'] = 0
-    
-    # Calculate markup percentage (Current Asking Price minus Cost Basis divided by Cost Basis)
-    if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
-        processed_df['markup_percentage'] = ((processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']) / 
-                                           processed_df['custom.Asset_Cost_Basis'] * 100)
-    
-    # Calculate cost basis per acre
-    if all(col in processed_df.columns for col in ['custom.Asset_Cost_Basis', 'custom.All_Asset_Surveyed_Acres']):
-        processed_df['cost_basis_per_acre'] = processed_df['custom.Asset_Cost_Basis'] / processed_df['custom.All_Asset_Surveyed_Acres']
-    
-    # Calculate percent of original listing price
-    if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
-        processed_df['percent_of_initial_listing'] = (processed_df['primary_opportunity_value'] / 
-                                                     processed_df['custom.Asset_Original_Listing_Price'] * 100)
-    
-    # Check missing information for each property
-    processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
-    
-    # Process Zillow data if URLs exist
-    processed_df = process_zillow_data(processed_df)
-    
-    return processed_df
+    try:
+        processed_df = df.copy()
+        
+        # Clean and standardize data
+        if 'custom.All_County' in processed_df.columns:
+            processed_df['custom.All_County'] = processed_df['custom.All_County'].fillna('Unknown County')
+            processed_df['custom.All_County'] = processed_df['custom.All_County'].astype(str).str.title()
+        
+        # Calculate days on market first
+        processed_df['days_on_market'] = processed_df.apply(calculate_days_on_market, axis=1)
+        
+        # Calculate metrics
+        if 'primary_opportunity_value' in processed_df.columns:
+            processed_df['price_reductions'] = processed_df['primary_opportunity_value'].apply(count_price_reductions)
+        else:
+            processed_df['price_reductions'] = 0
+        
+        # Financial calculations
+        if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
+            processed_df['current_margin'] = processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']
+            # CORRECTED: Margin % = (Current Price - Cost Basis) / Current Price × 100
+            processed_df['current_margin_pct'] = (processed_df['current_margin'] / processed_df['primary_opportunity_value'] * 100)
+        else:
+            processed_df['current_margin'] = 0
+            processed_df['current_margin_pct'] = 0
+        
+        # Price per acre
+        if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
+            processed_df['price_per_acre'] = processed_df['primary_opportunity_value'] / processed_df['custom.All_Asset_Surveyed_Acres']
+        else:
+            processed_df['price_per_acre'] = 0
+        
+        # Calculate markup percentage (Current Asking Price minus Cost Basis divided by Cost Basis)
+        if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
+            processed_df['markup_percentage'] = ((processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']) / 
+                                               processed_df['custom.Asset_Cost_Basis'] * 100)
+        else:
+            processed_df['markup_percentage'] = 0
+        
+        # Calculate cost basis per acre
+        if all(col in processed_df.columns for col in ['custom.Asset_Cost_Basis', 'custom.All_Asset_Surveyed_Acres']):
+            processed_df['cost_basis_per_acre'] = processed_df['custom.Asset_Cost_Basis'] / processed_df['custom.All_Asset_Surveyed_Acres']
+        else:
+            processed_df['cost_basis_per_acre'] = 0
+        
+        # Calculate percent of original listing price
+        if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
+            processed_df['percent_of_initial_listing'] = (processed_df['primary_opportunity_value'] / 
+                                                         processed_df['custom.Asset_Original_Listing_Price'] * 100)
+        else:
+            processed_df['percent_of_initial_listing'] = 0
+        
+        # Check missing information for each property
+        processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
+        
+        # Process Zillow data if URLs exist
+        processed_df = process_zillow_data(processed_df)
+        
+        return processed_df
+        
+    except Exception as e:
+        st.error(f"Error in process_data: {str(e)}")
+        # Return basic dataframe with minimal processing
+        basic_df = df.copy()
+        basic_df['days_on_market'] = None
+        basic_df['price_reductions'] = 0
+        basic_df['current_margin'] = 0
+        basic_df['current_margin_pct'] = 0
+        basic_df['price_per_acre'] = 0
+        basic_df['markup_percentage'] = 0
+        basic_df['cost_basis_per_acre'] = 0
+        basic_df['percent_of_initial_listing'] = 0
+        basic_df['missing_information'] = "Error processing"
+        basic_df['zillow_views'] = "N/A"
+        basic_df['zillow_saves'] = "N/A"
+        return basic_df
 
 def display_hierarchy_breakdown(df):
     """Display the Status → State → County hierarchy with correct order"""
@@ -326,7 +351,7 @@ def display_hierarchy_breakdown(df):
                     'Properties': len(status_df),
                     'Total Value': f"${status_df['primary_opportunity_value'].sum():,.0f}" if 'primary_opportunity_value' in df.columns else 'N/A',
                     'Avg DOM': f"{status_df['days_on_market'].mean():.0f}" if 'days_on_market' in status_df.columns and status_df['days_on_market'].notna().any() else 'N/A',
-                    'Avg Reductions': f"{status_df['price_reductions'].mean():.1f}" if 'price_reductions' in status_df.columns else 'N/A'
+                    'Avg Reductions': f"{status_df['price_reductions'].mean():.1f}" if 'price_reductions' in status_df.columns and status_df['price_reductions'].notna().any() else 'N/A'
                 }
                 status_summary.append(summary)
         
