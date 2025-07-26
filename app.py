@@ -238,6 +238,8 @@ def process_data(df):
     # Calculate metrics
     if 'primary_opportunity_value' in processed_df.columns:
         processed_df['price_reductions'] = processed_df['primary_opportunity_value'].apply(count_price_reductions)
+    else:
+        processed_df['price_reductions'] = 0
     
     processed_df['days_on_market'] = processed_df.apply(calculate_days_on_market, axis=1)
     
@@ -246,10 +248,15 @@ def process_data(df):
         processed_df['current_margin'] = processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']
         # CORRECTED: Margin % = (Current Price - Cost Basis) / Current Price × 100
         processed_df['current_margin_pct'] = (processed_df['current_margin'] / processed_df['primary_opportunity_value'] * 100)
+    else:
+        processed_df['current_margin'] = 0
+        processed_df['current_margin_pct'] = 0
     
     # Price per acre
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
         processed_df['price_per_acre'] = processed_df['primary_opportunity_value'] / processed_df['custom.All_Asset_Surveyed_Acres']
+    else:
+        processed_df['price_per_acre'] = 0
     
     # Calculate markup percentage (Current Asking Price minus Cost Basis divided by Cost Basis)
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
