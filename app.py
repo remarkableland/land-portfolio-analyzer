@@ -174,7 +174,7 @@ def process_zillow_data(df):
                         df.loc[idx, 'zillow_status'] = f"Error: {str(e)[:30]}"
                 
                 progress_bar.empty()
-                st.experimental_rerun()
+                st.rerun()
         
         with col2:
             st.info("📝 **Manual Entry**: If automatic extraction fails, you can manually check the Zillow URL and enter the data:")
@@ -271,11 +271,34 @@ def process_data(df):
         # Calculate days on market first
         processed_df['days_on_market'] = processed_df.apply(calculate_days_on_market, axis=1)
         
+        # Convert key numeric columns to ensure proper data types
+        numeric_columns = [
+            'primary_opportunity_value',
+            'custom.Asset_Cost_Basis', 
+            'custom.All_Asset_Surveyed_Acres',
+            'custom.Asset_Original_Listing_Price'
+        ]
+        
+        for col in numeric_columns:
+            if col in processed_df.columns:
+                processed_df[col] = pd.to_numeric(processed_df[col], errors='coerce').fillna(0)
+        
         # Calculate metrics with better error handling
         processed_df['price_reductions'] = 0  # Default value
         if 'primary_opportunity_value' in processed_df.columns:
             try:
-                processed_df['price_reductions'] = processed_df['primary_opportunity_value'].apply(count_price_reductions)
+                # Ensure the function is properly called
+                def calc_price_reductions(price):
+                    try:
+                        if pd.isna(price) or price == 0:
+                            return 0
+                        trailing_digit = int(str(int(price))[-1])
+                        reduction_map = {9: 0, 8: 1, 7: 2, 6: 3, 5: 4, 4: 5, 3: 6, 2: 7, 1: 8, 0: 9}
+                        return reduction_map.get(trailing_digit, 0)
+                    except:
+                        return 0
+                
+                processed_df['price_reductions'] = processed_df['primary_opportunity_value'].apply(calc_price_reductions)
             except Exception as e:
                 st.warning(f"Could not calculate price reductions: {str(e)}")
                 processed_df['price_reductions'] = 0
@@ -285,10 +308,6 @@ def process_data(df):
         processed_df['current_margin_pct'] = 0
         if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
             try:
-                # Ensure numeric data types
-                processed_df['primary_opportunity_value'] = pd.to_numeric(processed_df['primary_opportunity_value'], errors='coerce').fillna(0)
-                processed_df['custom.Asset_Cost_Basis'] = pd.to_numeric(processed_df['custom.Asset_Cost_Basis'], errors='coerce').fillna(0)
-                
                 processed_df['current_margin'] = processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']
                 # Avoid division by zero
                 mask = processed_df['primary_opportunity_value'] != 0
@@ -302,9 +321,6 @@ def process_data(df):
         processed_df['price_per_acre'] = 0
         if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
             try:
-                # Ensure numeric data types
-                processed_df['custom.All_Asset_Surveyed_Acres'] = pd.to_numeric(processed_df['custom.All_Asset_Surveyed_Acres'], errors='coerce').fillna(1)
-                
                 # Avoid division by zero
                 mask = processed_df['custom.All_Asset_Surveyed_Acres'] != 0
                 processed_df.loc[mask, 'price_per_acre'] = processed_df.loc[mask, 'primary_opportunity_value'] / processed_df.loc[mask, 'custom.All_Asset_Surveyed_Acres']
@@ -339,9 +355,6 @@ def process_data(df):
         processed_df['percent_of_initial_listing'] = 0
         if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
             try:
-                # Ensure numeric data types
-                processed_df['custom.Asset_Original_Listing_Price'] = pd.to_numeric(processed_df['custom.Asset_Original_Listing_Price'], errors='coerce').fillna(1)
-                
                 # Avoid division by zero
                 mask = processed_df['custom.Asset_Original_Listing_Price'] != 0
                 processed_df.loc[mask, 'percent_of_initial_listing'] = (processed_df.loc[mask, 'primary_opportunity_value'] / 
