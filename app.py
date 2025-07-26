@@ -44,12 +44,23 @@ def get_api_key():
         else:
             st.warning("⚠️ Using default API key (may be invalid)")
         
+        # Show API key info for debugging
+        if api_key:
+            st.write(f"**API Key Info:**")
+            st.write(f"- Length: {len(api_key)} characters")
+            st.write(f"- Starts with: `{api_key[:10]}...`")
+            st.write(f"- Format: {'✅ Looks like Close.com format' if api_key.startswith('api_') else '❓ Unusual format'}")
+        
         st.markdown("""
         **How to get your API key:**
         1. Log in to Close.com
         2. Go to Settings > API Keys
-        3. Create a new API key
+        3. Create a new API key with **READ permissions for Leads**
         4. Copy and paste it above
+        
+        **Important:** Make sure your API key has:
+        - ✅ Read access to Leads
+        - ✅ Correct organization scope
         """)
     return api_key
 
@@ -204,75 +215,95 @@ def test_close_api_connection():
     """Test Close.com API connection and show available fields"""
     api_key = get_api_key()
     
-    try:
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        # Get a few leads to see their structure
-        response = requests.get(
-            f"{CLOSE_API_BASE}/lead/",
-            headers=headers,
-            params={"_limit": 5},  # Just get 5 leads to examine
-            timeout=10
-        )
-        
-        # Handle authentication errors specifically
-        if response.status_code == 401:
-            return {
-                "success": False,
-                "error": "Authentication failed",
-                "message": "The API key is invalid or expired. Please check your Close.com API key.",
-                "instructions": [
-                    "1. Log in to Close.com",
-                    "2. Go to Settings > API Keys", 
-                    "3. Create a new API key or verify the existing one",
-                    "4. Enter the correct API key in the sidebar"
-                ]
-            }
-        
-        response.raise_for_status()
-        data = response.json()
-        
-        leads = data.get("data", [])
-        
-        if leads:
-            first_lead = leads[0]
-            
-            # Look for APN-related fields
-            apn_fields = []
-            for key in first_lead.keys():
-                if 'apn' in key.lower() or 'APN' in key:
-                    apn_fields.append(key)
-            
-            # Also check custom fields
-            custom_fields = []
-            for key in first_lead.keys():
-                if key.startswith('custom.'):
-                    custom_fields.append(key)
-            
-            return {
-                "success": True,
-                "total_leads_in_system": len(leads),
-                "sample_lead_keys": list(first_lead.keys()),
-                "apn_related_fields": apn_fields,
-                "custom_fields": custom_fields,
-                "first_lead_sample": {k: v for k, v in first_lead.items() if k in ['name', 'status_label'] + apn_fields[:3]}
-            }
-        else:
-            return {
-                "success": True,
-                "total_leads_in_system": 0,
-                "message": "No leads found in system"
+    # Try different authentication methods
+    auth_methods = [
+        ("Bearer", f"Bearer {api_key}"),
+        ("Basic", api_key),  # Some APIs use basic auth with just the key
+        ("API-Key", api_key),  # Some APIs use custom headers
+    ]
+    
+    for auth_type, auth_value in auth_methods:
+        try:
+            headers = {
+                "Authorization": auth_value,
+                "Content-Type": "application/json"
             }
             
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "api_key_used": api_key[:10] + "..." if len(api_key) > 10 else api_key
-        }
+            st.write(f"🔍 Trying authentication method: {auth_type}")
+            
+            # Get a few leads to see their structure
+            response = requests.get(
+                f"{CLOSE_API_BASE}/lead/",
+                headers=headers,
+                params={"_limit": 5},  # Just get 5 leads to examine
+                timeout=10
+            )
+            
+            st.write(f"📊 Response status: {response.status_code}")
+            
+            # If this method works, use it
+            if response.status_code == 200:
+                st.success(f"✅ Authentication successful with {auth_type} method!")
+                
+                data = response.json()
+                leads = data.get("data", [])
+                
+                if leads:
+                    first_lead = leads[0]
+                    
+                    # Look for APN-related fields
+                    apn_fields = []
+                    for key in first_lead.keys():
+                        if 'apn' in key.lower() or 'APN' in key:
+                            apn_fields.append(key)
+                    
+                    # Also check custom fields
+                    custom_fields = []
+                    for key in first_lead.keys():
+                        if key.startswith('custom.'):
+                            custom_fields.append(key)
+                    
+                    return {
+                        "success": True,
+                        "auth_method": auth_type,
+                        "total_leads_in_system": len(leads),
+                        "sample_lead_keys": list(first_lead.keys()),
+                        "apn_related_fields": apn_fields,
+                        "custom_fields": custom_fields,
+                        "first_lead_sample": {k: v for k, v in first_lead.items() if k in ['name', 'status_label'] + apn_fields[:3]}
+                    }
+                else:
+                    return {
+                        "success": True,
+                        "auth_method": auth_type,
+                        "total_leads_in_system": 0,
+                        "message": "Authentication successful but no leads found in system"
+                    }
+            
+            elif response.status_code == 401:
+                st.warning(f"❌ {auth_type} authentication failed: 401 Unauthorized")
+                continue
+            else:
+                st.warning(f"❌ {auth_type} failed with status: {response.status_code}")
+                continue
+                
+        except Exception as e:
+            st.warning(f"❌ {auth_type} method error: {str(e)}")
+            continue
+    
+    # If all methods failed
+    return {
+        "success": False,
+        "error": "All authentication methods failed",
+        "message": "Please verify your API key and permissions",
+        "tried_methods": [method[0] for method in auth_methods],
+        "instructions": [
+            "1. Verify the API key is correct",
+            "2. Check that the API key has 'read' permissions for leads",
+            "3. Make sure the API key is for the correct Close.com organization",
+            "4. Try regenerating the API key in Close.com settings"
+        ]
+    }
 
 def process_lead_counts(df):
     """Add lead count data from Close.com to the dataframe"""
