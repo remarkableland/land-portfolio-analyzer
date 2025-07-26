@@ -97,6 +97,10 @@ def process_data(df):
         processed_df['markup_percentage'] = ((processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']) / 
                                            processed_df['custom.Asset_Cost_Basis'] * 100)
     
+    # Calculate cost basis per acre
+    if all(col in processed_df.columns for col in ['custom.Asset_Cost_Basis', 'custom.All_Asset_Surveyed_Acres']):
+        processed_df['cost_basis_per_acre'] = processed_df['custom.Asset_Cost_Basis'] / processed_df['custom.All_Asset_Surveyed_Acres']
+    
     # Calculate percent of original listing price (Current Asking Price vs Original Listing Price)
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
         processed_df['percent_of_initial_listing'] = (processed_df['primary_opportunity_value'] / 
@@ -246,13 +250,6 @@ def display_detailed_tables(df):
     """Display detailed property information with filtering"""
     st.header("📋 Detailed Property Information")
     
-    # DEBUG: Check if Original Listing Price exists at the start of this function
-    st.write(f"**DEBUG - Start of display_detailed_tables:**")
-    st.write(f"- 'custom.Asset_Original_Listing_Price' in df.columns: {'custom.Asset_Original_Listing_Price' in df.columns}")
-    if 'custom.Asset_Original_Listing_Price' in df.columns:
-        non_null_count = df['custom.Asset_Original_Listing_Price'].notna().sum()
-        st.write(f"- Non-null values in Original Listing Price: {non_null_count}/{len(df)}")
-    
     # Filters
     col1, col2, col3 = st.columns(3)
     
@@ -289,10 +286,6 @@ def display_detailed_tables(df):
     if county_filter != "All":
         filtered_df = filtered_df[filtered_df['custom.All_County'] == county_filter]
     
-    # DEBUG: Check if Original Listing Price exists after filtering
-    st.write(f"**DEBUG - After filtering:**")
-    st.write(f"- 'custom.Asset_Original_Listing_Price' in filtered_df.columns: {'custom.Asset_Original_Listing_Price' in filtered_df.columns}")
-    
     st.subheader(f"Showing {len(filtered_df)} properties")
     
     # Select key columns for display
@@ -328,15 +321,13 @@ def display_detailed_tables(df):
             try:
                 pos = display_columns.index('primary_opportunity_value')
                 display_columns.insert(pos, 'custom.Asset_Original_Listing_Price')
-                st.write("**MANUAL FIX: Added Original Listing Price to display_columns**")
             except ValueError:
                 display_columns.append('custom.Asset_Original_Listing_Price')
-                st.write("**MANUAL FIX: Appended Original Listing Price to display_columns**")
         
         display_df = filtered_df[display_columns].copy()
         
         # Format currency columns
-        currency_columns = ['custom.Asset_Original_Listing_Price', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'current_margin', 'price_per_acre']
+        currency_columns = ['custom.Asset_Original_Listing_Price', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'cost_basis_per_acre', 'current_margin', 'price_per_acre']
         for col in currency_columns:
             if col in display_df.columns:
                 display_df[col] = display_df[col].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "N/A")
@@ -351,11 +342,13 @@ def display_detailed_tables(df):
         if 'current_margin_pct' in display_df.columns:
             display_df['current_margin_pct'] = display_df['current_margin_pct'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "N/A")
         
-        # Format numeric columns
-        numeric_columns = ['custom.All_Asset_Surveyed_Acres', 'days_on_market']
-        for col in numeric_columns:
-            if col in display_df.columns:
-                display_df[col] = display_df[col].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+        # Format numeric columns (including rounded DOM)
+        if 'custom.All_Asset_Surveyed_Acres' in display_df.columns:
+            display_df['custom.All_Asset_Surveyed_Acres'] = display_df['custom.All_Asset_Surveyed_Acres'].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+        
+        # Format DOM with no decimals (rounded to whole days)
+        if 'days_on_market' in display_df.columns:
+            display_df['days_on_market'] = display_df['days_on_market'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
         
         # Format price reductions with dash for none, lowercase x for reductions
         if 'price_reductions' in display_df.columns:
@@ -375,6 +368,7 @@ def display_detailed_tables(df):
             'custom.Asset_Original_Listing_Price': 'Original Listing Price',
             'primary_opportunity_value': 'Current Asking Price',
             'custom.Asset_Cost_Basis': 'Cost Basis',
+            'cost_basis_per_acre': 'Cost Basis/Acre',
             'current_margin': 'Profit Margin',
             'current_margin_pct': 'Margin',
             'markup_percentage': 'Markup',
@@ -384,9 +378,6 @@ def display_detailed_tables(df):
             'days_on_market': 'DOM',
             'price_reductions': 'Price Reductions'
         })
-        
-        # DEBUG: Show columns after rename
-        st.write(f"**FINAL COLUMNS AFTER RENAME:** {list(display_df.columns)}")
         
         st.dataframe(display_df, use_container_width=True)
         
