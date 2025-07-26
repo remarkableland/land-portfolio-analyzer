@@ -3,6 +3,16 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from datetime import datetime
+from io import BytesIO
+try:
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
 
 st.set_page_config(
     page_title="Land Portfolio Analyzer",
@@ -237,7 +247,136 @@ def create_visualizations(df):
                         color_continuous_scale='viridis')
             st.plotly_chart(fig, use_container_width=True)
 
-def display_detailed_tables(df):
+def generate_missing_fields_checklist_pdf(df):
+    """Generate a PDF checklist of missing fields for each property"""
+    if not REPORTLAB_AVAILABLE:
+        st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
+        return None
+    
+    # Create a BytesIO buffer for the PDF
+    buffer = BytesIO()
+    
+    # Create the PDF document
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=1*inch, bottomMargin=1*inch)
+    story = []
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=16,
+        spaceAfter=30,
+        alignment=1  # Center alignment
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=12,
+        spaceAfter=12,
+        spaceBefore=20
+    )
+    
+    # Title
+    story.append(Paragraph("Property Data Completeness Checklist", title_style))
+    story.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y')}", styles['Normal']))
+    story.append(Spacer(1, 20))
+    
+    # Required fields for reference
+    required_fields = {
+        'custom.All_APN': 'APN',
+        'custom.All_Asset_Surveyed_Acres': 'Surveyed Acres',
+        'custom.All_County': 'County',
+        'custom.All_RemarkableLand_URL': 'RemarkableLand URL',
+        'custom.All_State': 'State',
+        'custom.Asset_Cost_Basis': 'Cost Basis',
+        'custom.Asset_Date_Purchased': 'Date Purchased',
+        'custom.Asset_Original_Listing_Price': 'Original Listing Price',
+        'custom.Asset_Land_ID_Internal_URL': 'Land ID Internal URL',
+        'custom.Asset_Land_ID_Share_URL': 'Land ID Share URL',
+        'custom.Asset_MLS#': 'MLS#',
+        'custom.Asset_MLS_Listing_Date': 'MLS Listing Date',
+        'custom.Asset_Street_Address': 'Street Address',
+        'avg_one_time_active_opportunity_value': 'Avg One Time Active Opportunity Value'
+    }
+    
+    # Filter to only properties with missing information
+    incomplete_properties = df[df['missing_information'] != '✅ Complete'].copy()
+    
+    if len(incomplete_properties) == 0:
+        story.append(Paragraph("🎉 Congratulations! All properties have complete data.", styles['Normal']))
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
+    # Sort by State, then County, then Property Name
+    sort_columns = []
+    if 'custom.All_State' in incomplete_properties.columns:
+        sort_columns.append('custom.All_State')
+    if 'custom.All_County' in incomplete_properties.columns:
+        sort_columns.append('custom.All_County')
+    if 'display_name' in incomplete_properties.columns:
+        sort_columns.append('display_name')
+    
+    if sort_columns:
+        incomplete_properties = incomplete_properties.sort_values(sort_columns)
+    
+    # Group by State and County
+    current_state = None
+    current_county = None
+    
+    for _, row in incomplete_properties.iterrows():
+        state = row.get('custom.All_State', 'Unknown State')
+        county = row.get('custom.All_County', 'Unknown County')
+        property_name = row.get('display_name', 'Unknown Property')
+        missing_info = row.get('missing_information', '')
+        
+        # Add state header if changed
+        if state != current_state:
+            current_state = state
+            story.append(Spacer(1, 20))
+            story.append(Paragraph(f"STATE: {state}", heading_style))
+            current_county = None  # Reset county when state changes
+        
+        # Add county header if changed
+        if county != current_county:
+            current_county = county
+            story.append(Spacer(1, 10))
+            story.append(Paragraph(f"County: {county}", styles['Heading3']))
+        
+        # Add property name
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(f"<b>Property:</b> {property_name}", styles['Normal']))
+        
+        # Parse missing fields and create checkboxes
+        if missing_info.startswith('❌ Missing: '):
+            missing_fields_text = missing_info.replace('❌ Missing: ', '')
+            missing_fields_list = [field.strip() for field in missing_fields_text.split(',')]
+            
+            # Create checklist table
+            checklist_data = []
+            for field in missing_fields_list:
+                checklist_data.append(['☐', field])
+            
+            if checklist_data:
+                checklist_table = Table(checklist_data, colWidths=[0.3*inch, 4*inch])
+                checklist_table.setStyle(TableStyle([
+                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ]))
+                story.append(checklist_table)
+        
+        story.append(Spacer(1, 5))
+    
+    # Build the PDF
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
     """Display detailed property information with filtering"""
     st.header("📋 Detailed Property Information")
     
@@ -480,6 +619,18 @@ def display_detailed_tables(df):
                         })
                     
                     st.dataframe(pd.DataFrame(missing_summary), use_container_width=True)
+        
+        # Add PDF download button for missing fields checklist
+        st.subheader("📄 Download Missing Fields Checklist")
+        if st.button("Generate PDF Checklist", type="primary"):
+            pdf_buffer = generate_missing_fields_checklist_pdf(filtered_df)
+            if pdf_buffer:
+                st.download_button(
+                    label="📥 Download PDF Checklist",
+                    data=pdf_buffer,
+                    file_name=f"missing_fields_checklist_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                    mime="application/pdf"
+                )
 
 def main():
     st.title("🏞️ Land Portfolio Analyzer")
@@ -535,6 +686,8 @@ def main():
         - **MLS Listing Date** (custom.Asset_MLS_Listing_Date)
         - **Street Address** (custom.Asset_Street_Address)
         - **Avg One Time Active Opportunity Value** (avg_one_time_active_opportunity_value)
+        
+        **Note**: To use PDF generation, install reportlab: `pip install reportlab`
         
         ### Price Reduction System
         Automatically calculated from trailing digit of current value:
