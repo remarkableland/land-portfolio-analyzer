@@ -377,6 +377,8 @@ def generate_missing_fields_checklist_pdf(df):
     doc.build(story)
     buffer.seek(0)
     return buffer
+
+def display_detailed_tables(df):
     """Display detailed property information with filtering"""
     st.header("📋 Detailed Property Information")
     
