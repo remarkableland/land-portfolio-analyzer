@@ -4,8 +4,6 @@ import numpy as np
 import plotly.express as px
 from datetime import datetime
 from io import BytesIO
-import requests
-import time
 try:
     from reportlab.lib.pagesizes import letter, A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -21,404 +19,6 @@ st.set_page_config(
     page_icon="🏞️",
     layout="wide"
 )
-
-# Close.com API Configuration
-# NOTE: This API key appears to be invalid (401 Unauthorized error)
-# You'll need to get a valid API key from Close.com
-CLOSE_API_KEY = "api_74RFzgOQpU0hdtf3tHZyWK.4OlJ6xHkGeq8ez1ZkJApdP"
-CLOSE_API_BASE = "https://api.close.com/api/v1"
-
-# Add API key input in sidebar for easy updating
-def get_api_key():
-    """Get API key from sidebar input or use default"""
-    with st.sidebar:
-        st.subheader("🔑 Close.com API Configuration")
-        api_key = st.text_input(
-            "Close.com API Key", 
-            value=CLOSE_API_KEY,
-            type="password",
-            help="Enter your Close.com API key. Get it from Close.com Settings > API Keys"
-        )
-        if api_key != CLOSE_API_KEY:
-            st.info("✅ Using custom API key")
-        else:
-            st.warning("⚠️ Using default API key (may be invalid)")
-        
-        # Show API key info for debugging
-        if api_key:
-            st.write(f"**API Key Info:**")
-            st.write(f"- Length: {len(api_key)} characters")
-            st.write(f"- Starts with: `{api_key[:10]}...`")
-            st.write(f"- Format: {'✅ Looks like Close.com format' if api_key.startswith('api_') else '❓ Unusual format'}")
-        
-        st.markdown("""
-        **How to get your API key:**
-        1. Log in to Close.com
-        2. Go to Settings > API Keys
-        3. Create a new API key with **READ permissions for Leads**
-        4. Copy and paste it above
-        
-        **Important:** Make sure your API key has:
-        - ✅ Read access to Leads
-        - ✅ Correct organization scope
-        """)
-    return api_key
-
-def query_close_leads_by_apn(apn):
-    """Query Close.com for leads matching specific APN"""
-    if pd.isna(apn) or apn == '' or str(apn).strip() == '':
-        return {"count": 0, "status": "No APN", "debug": "Empty APN"}
-    
-    api_key = get_api_key()
-    
-    try:
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        
-        # Clean the APN for the search query
-        clean_apn = str(apn).strip()
-        
-        # Handle multiple APNs separated by commas
-        apn_list = [apn.strip() for apn in clean_apn.split(',')]
-        
-        all_leads = []
-        search_attempts = []
-        
-        # Try searching for each individual APN
-        for individual_apn in apn_list:
-            if individual_apn:  # Skip empty strings
-                # Try multiple search strategies
-                search_queries = [
-                    f'custom.All_APN:"{individual_apn}"',  # Exact match in quotes
-                    f'custom.All_APN:{individual_apn}',    # Without quotes
-                    f'"{individual_apn}"',                 # Global search with quotes
-                    individual_apn                         # Simple global search
-                ]
-                
-                for query in search_queries:
-                    try:
-                        response = requests.get(
-                            f"{CLOSE_API_BASE}/lead/",
-                            headers=headers,
-                            params={
-                                "query": query,
-                                "_limit": 100
-                            },
-                            timeout=10
-                        )
-                        
-                        # Handle authentication errors
-                        if response.status_code == 401:
-                            return {
-                                "count": 0,
-                                "status": "Auth Error",
-                                "debug": {
-                                    "error": "401 Unauthorized - Invalid API key",
-                                    "message": "Please update your Close.com API key in the sidebar"
-                                }
-                            }
-                        
-                        response.raise_for_status()
-                        data = response.json()
-                        leads = data.get("data", [])
-                        
-                        search_attempts.append({
-                            "apn": individual_apn,
-                            "query": query,
-                            "leads_found": len(leads),
-                            "http_status": response.status_code
-                        })
-                        
-                        # If we found leads with this query, add them and stop trying other queries for this APN
-                        if leads:
-                            all_leads.extend(leads)
-                            break
-                            
-                    except Exception as search_error:
-                        search_attempts.append({
-                            "apn": individual_apn,
-                            "query": query,
-                            "error": str(search_error)[:50]
-                        })
-                        continue
-        
-        # Remove duplicates (in case same lead matched multiple APNs)
-        unique_leads = []
-        seen_lead_ids = set()
-        for lead in all_leads:
-            lead_id = lead.get('id', '')
-            if lead_id and lead_id not in seen_lead_ids:
-                unique_leads.append(lead)
-                seen_lead_ids.add(lead_id)
-        
-        # DEBUG: Show what we found
-        debug_info = {
-            "original_apn": clean_apn,
-            "apn_list": apn_list,
-            "search_attempts": search_attempts,
-            "total_leads_found": len(unique_leads),
-            "unique_lead_ids": len(seen_lead_ids)
-        }
-        
-        # If we found leads, let's see their structure
-        if unique_leads and len(unique_leads) > 0:
-            first_lead = unique_leads[0]
-            debug_info["first_lead_keys"] = list(first_lead.keys()) if isinstance(first_lead, dict) else "Not a dict"
-            debug_info["first_lead_status"] = first_lead.get("status_label", "NO STATUS FIELD")
-            # Check if the lead actually has the APN field
-            debug_info["first_lead_has_apn"] = "custom.All_APN" in first_lead
-            debug_info["first_lead_apn_value"] = first_lead.get("custom.All_APN", "NO APN FIELD")
-        
-        # Filter OUT leads with excluded statuses
-        excluded_statuses = ["Remarkable Asset", "Remarkable Sold", "Neighbor"]
-        filtered_leads = []
-        
-        for lead in unique_leads:
-            lead_status = lead.get("status_label", "")
-            if lead_status not in excluded_statuses:
-                filtered_leads.append(lead)
-        
-        status = "Success" if len(search_attempts) > 0 else "No searches attempted"
-        
-        return {
-            "count": len(filtered_leads),
-            "status": status,
-            "total_leads": len(unique_leads),
-            "filtered_leads": len(filtered_leads),
-            "debug": debug_info
-        }
-        
-    except requests.exceptions.RequestException as e:
-        return {
-            "count": 0, 
-            "status": f"API Error: {str(e)[:50]}", 
-            "debug": {
-                "error_type": "RequestException",
-                "error_message": str(e),
-                "original_apn": str(apn)
-            }
-        }
-    except Exception as e:
-        return {
-            "count": 0, 
-            "status": f"Error: {str(e)[:50]}", 
-            "debug": {
-                "error_type": "General Exception",
-                "error_message": str(e),
-                "original_apn": str(apn)
-            }
-        }
-
-def test_close_api_connection():
-    """Test Close.com API connection and show available fields"""
-    api_key = get_api_key()
-    
-    # Try different authentication methods
-    auth_methods = [
-        ("Bearer", f"Bearer {api_key}"),
-        ("Basic", api_key),  # Some APIs use basic auth with just the key
-        ("API-Key", api_key),  # Some APIs use custom headers
-    ]
-    
-    # Test with different endpoints to see which one works
-    test_endpoints = [
-        ("/me/", "User Profile"),
-        ("/organization/", "Organization Info"),
-        ("/lead/", "Leads")
-    ]
-    
-    for auth_type, auth_value in auth_methods:
-        st.write(f"🔍 Trying authentication method: {auth_type}")
-        
-        for endpoint, endpoint_name in test_endpoints:
-            try:
-                headers = {
-                    "Authorization": auth_value,
-                    "Content-Type": "application/json"
-                }
-                
-                # Get a few leads to see their structure
-                response = requests.get(
-                    f"{CLOSE_API_BASE}{endpoint}",
-                    headers=headers,
-                    params={"_limit": 5} if endpoint == "/lead/" else {},
-                    timeout=10
-                )
-                
-                st.write(f"📊 {endpoint_name} response: {response.status_code}")
-                
-                # If this method works with ANY endpoint, that's progress
-                if response.status_code == 200:
-                    st.success(f"✅ Authentication successful with {auth_type} method on {endpoint_name}!")
-                    
-                    data = response.json()
-                    
-                    # If it's the leads endpoint, process normally
-                    if endpoint == "/lead/":
-                        leads = data.get("data", [])
-                        
-                        if leads:
-                            first_lead = leads[0]
-                            
-                            # Look for APN-related fields
-                            apn_fields = []
-                            for key in first_lead.keys():
-                                if 'apn' in key.lower() or 'APN' in key:
-                                    apn_fields.append(key)
-                            
-                            # Also check custom fields
-                            custom_fields = []
-                            for key in first_lead.keys():
-                                if key.startswith('custom.'):
-                                    custom_fields.append(key)
-                            
-                            return {
-                                "success": True,
-                                "auth_method": auth_type,
-                                "total_leads_in_system": len(leads),
-                                "sample_lead_keys": list(first_lead.keys()),
-                                "apn_related_fields": apn_fields,
-                                "custom_fields": custom_fields,
-                                "first_lead_sample": {k: v for k, v in first_lead.items() if k in ['name', 'status_label'] + apn_fields[:3]}
-                            }
-                        else:
-                            return {
-                                "success": True,
-                                "auth_method": auth_type,
-                                "total_leads_in_system": 0,
-                                "message": "Authentication successful but no leads found in system"
-                            }
-                    else:
-                        # For other endpoints, just show that auth works
-                        st.info(f"✅ API key works with {endpoint_name}. Trying leads endpoint...")
-                        continue
-                        
-                elif response.status_code == 401:
-                    st.warning(f"❌ {auth_type} authentication failed on {endpoint_name}: 401 Unauthorized")
-                elif response.status_code == 403:
-                    st.warning(f"❌ {auth_type} authentication works but no permission for {endpoint_name}: 403 Forbidden")
-                else:
-                    st.warning(f"❌ {auth_type} failed on {endpoint_name} with status: {response.status_code}")
-                    
-            except Exception as e:
-                st.warning(f"❌ {auth_type} method error on {endpoint_name}: {str(e)}")
-                continue
-    
-    # If all methods failed
-    return {
-        "success": False,
-        "error": "All authentication methods failed on all endpoints",
-        "message": "API key appears to be completely invalid or expired",
-        "tried_methods": [method[0] for method in auth_methods],
-        "tried_endpoints": [endpoint[1] for endpoint in test_endpoints],
-        "instructions": [
-            "1. **DELETE** the current API key in Close.com",
-            "2. **CREATE** a new API key with these exact settings:",
-            "   - Name: Portfolio Analyzer", 
-            "   - Permissions: ✅ Read Leads (minimum)",
-            "   - Scope: Your organization",
-            "3. **COPY** the new key carefully (no spaces)",
-            "4. **PASTE** it in the sidebar and test again"
-        ]
-    }
-
-def process_lead_counts(df):
-    """Add lead count data from Close.com to the dataframe"""
-    # Initialize lead count column
-    df['lead_count'] = 0
-    df['lead_query_status'] = "Not processed"
-    
-    # Only process rows that have APN values
-    apn_rows = df[df['custom.All_APN'].notna() & 
-                  (df['custom.All_APN'] != '') & 
-                  (df['custom.All_APN'].astype(str).str.strip() != '')].index
-    
-    if len(apn_rows) > 0:
-        st.info(f"🔍 Querying Close.com for lead data on {len(apn_rows)} properties...")
-        st.info("📊 Filtering out statuses: 'Remarkable Asset', 'Remarkable Sold', 'Neighbor'")
-        
-        # Add API connection test button for debugging
-        if st.button("🔧 Test Close.com API Connection", help="Click to test the API and see available fields"):
-            with st.expander("API Connection Test Results", expanded=True):
-                test_result = test_close_api_connection()
-                st.json(test_result)
-        
-        progress_bar = st.progress(0)
-        status_placeholder = st.empty()
-        
-        success_count = 0
-        total_leads_found = 0
-        debug_details = []
-        
-        for i, idx in enumerate(apn_rows):
-            apn = df.loc[idx, 'custom.All_APN']
-            property_name = df.loc[idx, 'display_name'] if 'display_name' in df.columns else f"Property {idx}"
-            
-            # Update progress
-            progress = (i + 1) / len(apn_rows)
-            progress_bar.progress(progress)
-            status_placeholder.text(f"Processing {property_name[:30]}... ({i+1}/{len(apn_rows)})")
-            
-            # Query Close.com
-            lead_data = query_close_leads_by_apn(apn)
-            
-            # Store debug info for first few properties
-            if i < 5:  # Debug first 5 properties instead of 3
-                debug_details.append({
-                    "property": property_name,
-                    "apn": apn,
-                    "query_result": lead_data
-                })
-            
-            # Update dataframe
-            df.loc[idx, 'lead_count'] = lead_data['count']
-            df.loc[idx, 'lead_query_status'] = lead_data['status']
-            
-            if lead_data['status'] == 'Success':
-                success_count += 1
-                total_leads_found += lead_data['count']
-            
-            # Add small delay to be respectful to the API
-            time.sleep(0.1)
-        
-        progress_bar.empty()
-        status_placeholder.empty()
-        
-        # Show summary
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Properties Queried", f"{success_count}/{len(apn_rows)}")
-        with col2:
-            st.metric("Total Qualified Leads", total_leads_found)
-        with col3:
-            avg_leads = total_leads_found / len(apn_rows) if len(apn_rows) > 0 else 0
-            st.metric("Avg Leads/Property", f"{avg_leads:.1f}")
-        
-        if success_count < len(apn_rows):
-            st.warning(f"⚠️ {len(apn_rows) - success_count} properties had API query issues.")
-        
-        # Show debugging information
-        if debug_details:
-            st.subheader("🔧 Debugging Information (First 5 Properties)")
-            for detail in debug_details:
-                with st.expander(f"Debug: {detail['property']} (APN: {detail['apn']})"):
-                    st.json(detail['query_result'])
-        
-        # Show sample APN values for debugging
-        st.subheader("📋 Sample APN Values from CSV")
-        sample_apns = df.loc[apn_rows[:10], 'custom.All_APN'].tolist()
-        st.write("First 10 APNs from your data:")
-        for i, apn in enumerate(sample_apns, 1):
-            st.write(f"{i}. `{apn}` (type: {type(apn)}, length: {len(str(apn))})")
-            
-    else:
-        st.info("ℹ️ No properties with APN values found to query.")
-        df['lead_count'] = 0
-        df['lead_query_status'] = "No APN"
-    
-    return df
 
 def calculate_days_on_market(row):
     """Calculate days on market from MLS listing date"""
@@ -575,14 +175,6 @@ def process_data(df):
         # Check missing information for each property
         processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
         
-        # Process Close.com lead counts
-        try:
-            processed_df = process_lead_counts(processed_df)
-        except Exception as e:
-            st.warning(f"Could not process Close.com lead data: {str(e)}")
-            processed_df['lead_count'] = 0
-            processed_df['lead_query_status'] = "Error"
-        
         return processed_df
         
     except Exception as e:
@@ -598,8 +190,6 @@ def process_data(df):
         basic_df['cost_basis_per_acre'] = 0
         basic_df['percent_of_initial_listing'] = 0
         basic_df['missing_information'] = "Error processing"
-        basic_df['lead_count'] = 0
-        basic_df['lead_query_status'] = "Error"
         return basic_df
 
 def display_hierarchy_breakdown(df):
@@ -984,7 +574,7 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display - Lead Count added between Acres and Current Asking Price
+    # Select key columns for display - REMOVED Lead Count
     desired_columns = [
         'display_name',                         # Property Name (Left)
         'primary_opportunity_status_label',     # Status (Left)
@@ -992,7 +582,6 @@ def display_detailed_tables(df):
         'custom.All_County',                    # County (Left)
         'custom.All_APN',                       # APN (Left)
         'custom.All_Asset_Surveyed_Acres',      # Acres (Right)
-        'lead_count',                           # Lead Count (Center) - NEW POSITION
         'primary_opportunity_value',            # Current Asking Price (Right)
         'custom.Asset_Cost_Basis',              # Cost Basis (Right)
         'current_margin',                       # Profit Margin (Right)
@@ -1098,7 +687,7 @@ def display_detailed_tables(df):
             
             display_df['primary_opportunity_status_label'] = display_df['primary_opportunity_status_label'].apply(format_status)
         
-        # Rename columns for display with updated headers
+        # Rename columns for display - REMOVED Lead Count
         display_df = display_df.rename(columns={
             'display_name': 'Property Name',
             'primary_opportunity_status_label': 'Status',
@@ -1106,7 +695,6 @@ def display_detailed_tables(df):
             'custom.All_County': 'County',
             'custom.All_APN': 'APN',
             'custom.All_Asset_Surveyed_Acres': 'Acres',
-            'lead_count': 'Lead Count',
             'primary_opportunity_value': 'Current Asking Price',
             'custom.Asset_Cost_Basis': 'Cost Basis',
             'current_margin': 'Profit Margin',
@@ -1122,7 +710,7 @@ def display_detailed_tables(df):
             'missing_information': 'Missing Information'
         })
         
-        # Display table with custom CSS for column alignment
+        # Display table with custom CSS for column alignment - UPDATED WITHOUT Lead Count
         st.markdown("""
         <style>
         .dataframe th:nth-child(1), .dataframe td:nth-child(1) { text-align: left !important; }    /* Property Name */
@@ -1131,20 +719,19 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(4), .dataframe td:nth-child(4) { text-align: left !important; }    /* County */
         .dataframe th:nth-child(5), .dataframe td:nth-child(5) { text-align: left !important; }    /* APN */
         .dataframe th:nth-child(6), .dataframe td:nth-child(6) { text-align: right !important; }   /* Acres */
-        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: center !important; }  /* Lead Count */
-        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Current Asking Price */
-        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: right !important; }   /* Cost Basis */
-        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: right !important; }  /* Profit Margin */
-        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: center !important; } /* Margin */
-        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: center !important; } /* Markup */
-        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Asking Price/Acre */
-        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: right !important; }  /* Cost Basis/Acre */
-        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: right !important; }  /* Original Listing Price */
-        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* %OLP */
-        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* DOM */
-        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Price Reductions */
-        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: center !important; } /* Last Map Audit */
-        .dataframe th:nth-child(20), .dataframe td:nth-child(20) { text-align: left !important; }   /* Missing Information */
+        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: right !important; }   /* Current Asking Price */
+        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Cost Basis */
+        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: right !important; }   /* Profit Margin */
+        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: center !important; } /* Margin */
+        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: center !important; } /* Markup */
+        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: right !important; }  /* Asking Price/Acre */
+        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Cost Basis/Acre */
+        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: right !important; }  /* Original Listing Price */
+        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* %OLP */
+        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* DOM */
+        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
+        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Map Audit */
+        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
         </style>
         """, unsafe_allow_html=True)
         
