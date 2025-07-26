@@ -248,7 +248,7 @@ def create_visualizations(df):
             st.plotly_chart(fig, use_container_width=True)
 
 def generate_missing_fields_checklist_pdf(df):
-    """Generate a PDF checklist of missing fields for each property"""
+    """Generate a super compact PDF checklist of missing fields for each property"""
     if not REPORTLAB_AVAILABLE:
         st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
         return None
@@ -256,32 +256,69 @@ def generate_missing_fields_checklist_pdf(df):
     # Create a BytesIO buffer for the PDF
     buffer = BytesIO()
     
-    # Create the PDF document
-    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=1*inch, bottomMargin=1*inch)
+    # Create the PDF document with very tight margins
+    doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                          topMargin=0.4*inch, bottomMargin=0.4*inch,
+                          leftMargin=0.4*inch, rightMargin=0.4*inch)
     story = []
     
-    # Get styles
+    # Get styles and create super compact styles
     styles = getSampleStyleSheet()
+    
+    # Super compact title style
     title_style = ParagraphStyle(
-        'CustomTitle',
+        'SuperCompactTitle',
         parent=styles['Heading1'],
-        fontSize=16,
-        spaceAfter=30,
+        fontSize=12,
+        spaceAfter=8,
+        spaceBefore=0,
         alignment=1  # Center alignment
     )
     
-    heading_style = ParagraphStyle(
-        'CustomHeading',
+    # Super compact heading styles
+    state_style = ParagraphStyle(
+        'StateHeading',
         parent=styles['Heading2'],
-        fontSize=12,
-        spaceAfter=12,
-        spaceBefore=20
+        fontSize=10,
+        spaceAfter=2,
+        spaceBefore=6,
+        textColor=colors.black,
+        fontName='Helvetica-Bold'
     )
     
-    # Title
+    county_style = ParagraphStyle(
+        'CountyHeading',
+        parent=styles['Heading3'],
+        fontSize=9,
+        spaceAfter=1,
+        spaceBefore=4,
+        leftIndent=8,
+        textColor=colors.darkblue,
+        fontName='Helvetica-Bold'
+    )
+    
+    property_style = ParagraphStyle(
+        'PropertyStyle',
+        parent=styles['Normal'],
+        fontSize=8,
+        spaceAfter=1,
+        spaceBefore=2,
+        leftIndent=16,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Super compact date style
+    date_style = ParagraphStyle(
+        'DateStyle',
+        parent=styles['Normal'],
+        fontSize=7,
+        spaceAfter=4,
+        alignment=1  # Center alignment
+    )
+    
+    # Title and date
     story.append(Paragraph("Property Data Completeness Checklist", title_style))
-    story.append(Paragraph(f"Generated on: {datetime.now().strftime('%B %d, %Y')}", styles['Normal']))
-    story.append(Spacer(1, 20))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%m/%d/%Y')}", date_style))
     
     # Required fields for reference
     required_fields = {
@@ -322,7 +359,7 @@ def generate_missing_fields_checklist_pdf(df):
     if sort_columns:
         incomplete_properties = incomplete_properties.sort_values(sort_columns)
     
-    # Group by State and County
+    # Group by State and County for ultra-compact layout
     current_state = None
     current_county = None
     
@@ -332,51 +369,69 @@ def generate_missing_fields_checklist_pdf(df):
         property_name = row.get('display_name', 'Unknown Property')
         missing_info = row.get('missing_information', '')
         
-        # Add state header if changed
+        # Add state header if changed (ultra compact)
         if state != current_state:
             current_state = state
-            story.append(Spacer(1, 20))
-            story.append(Paragraph(f"STATE: {state}", heading_style))
+            story.append(Spacer(1, 4))  # Minimal spacing
+            story.append(Paragraph(f"STATE: {state}", state_style))
             current_county = None  # Reset county when state changes
         
-        # Add county header if changed
+        # Add county header if changed (ultra compact)
         if county != current_county:
             current_county = county
-            story.append(Spacer(1, 10))
-            story.append(Paragraph(f"County: {county}", styles['Heading3']))
+            story.append(Spacer(1, 2))  # Minimal spacing
+            story.append(Paragraph(f"{county} County", county_style))
         
-        # Add property name
-        story.append(Spacer(1, 10))
-        story.append(Paragraph(f"<b>Property:</b> {property_name}", styles['Normal']))
+        # Property name (ultra compact)
+        story.append(Spacer(1, 1))  # Minimal spacing
+        # Truncate very long property names for better fit
+        display_name = property_name[:60] + "..." if len(property_name) > 60 else property_name
+        story.append(Paragraph(f"{display_name}", property_style))
         
-        # Parse missing fields and create checkboxes
+        # Parse missing fields and create ultra-compact checkboxes in 3 columns
         if missing_info.startswith('❌ Missing: '):
             missing_fields_text = missing_info.replace('❌ Missing: ', '')
             missing_fields_list = [field.strip() for field in missing_fields_text.split(',')]
             
-            # Create checklist table
-            checklist_data = []
-            for field in missing_fields_list:
-                checklist_data.append(['☐', field])
-            
-            if checklist_data:
-                checklist_table = Table(checklist_data, colWidths=[0.3*inch, 4*inch])
-                checklist_table.setStyle(TableStyle([
-                    ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-                    ('FONTSIZE', (0, 0), (-1, -1), 10),
-                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
-                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-                    ('TOPPADDING', (0, 0), (-1, -1), 2),
-                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-                ]))
-                story.append(checklist_table)
+            # Create ultra-compact checklist - 3 items per row for maximum space utilization
+            if missing_fields_list:
+                rows = []
+                for i in range(0, len(missing_fields_list), 3):
+                    row = []
+                    for j in range(3):
+                        if i + j < len(missing_fields_list):
+                            field = missing_fields_list[i + j]
+                            # Truncate long field names
+                            short_field = field[:18] + ('...' if len(field) > 18 else '')
+                            row.append('☐ ' + short_field)
+                        else:
+                            row.append('')
+                    rows.append(row)
+                
+                # Create super compact table with 3 columns
+                if rows:
+                    checklist_table = Table(rows, colWidths=[1.8*inch, 1.8*inch, 1.8*inch])
+                    checklist_table.setStyle(TableStyle([
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 7),  # Very small font
+                        ('LEFTPADDING', (0, 0), (-1, -1), 20),  # Indent from property name
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                        ('TOPPADDING', (0, 0), (-1, -1), 0),   # No top padding
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 0), # No bottom padding
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ]))
+                    story.append(checklist_table)
         
-        story.append(Spacer(1, 5))
+        # No spacing between properties to maximize density
     
     # Build the PDF
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
+    try:
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    except Exception as e:
+        st.error(f"Error generating PDF: {str(e)}")
+        return None
 
 def display_detailed_tables(df):
     """Display detailed property information with filtering"""
