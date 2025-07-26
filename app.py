@@ -278,25 +278,25 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display - reordered as requested
+    # Select key columns for display - NEW ORDER with alignment
     desired_columns = [
-        'display_name',                         # Property Name
-        'primary_opportunity_status_label',     # Status
-        'custom.All_State',                     # State
-        'custom.All_County',                    # County
-        'custom.All_Asset_Surveyed_Acres',      # Acres
-        'custom.Asset_Original_Listing_Price',  # Original Listing Price
-        'percent_of_initial_listing',           # %OLP
-        'primary_opportunity_value',            # Current Asking Price
-        'custom.Asset_Cost_Basis',              # Cost Basis
-        'current_margin',                       # Profit Margin
-        'current_margin_pct',                   # Margin
-        'markup_percentage',                    # Markup
-        'price_per_acre',                       # Asking Price/Acre
-        'cost_basis_per_acre',                  # Cost Basis/Acre
-        'days_on_market',                       # DOM
-        'price_reductions',                     # Price Reductions
-        'missing_information'                   # Missing Information (at the end)
+        'display_name',                         # Property Name (Left)
+        'primary_opportunity_status_label',     # Status (Left)
+        'custom.All_State',                     # State (Left)
+        'custom.All_County',                    # County (Left)
+        'custom.All_Asset_Surveyed_Acres',      # Acres (Right)
+        'primary_opportunity_value',            # Current Asking Price (Right)
+        'custom.Asset_Cost_Basis',              # Cost Basis (Right)
+        'current_margin',                       # Profit Margin (Right)
+        'current_margin_pct',                   # Margin (Center)
+        'markup_percentage',                    # Markup (Center)
+        'price_per_acre',                       # Asking Price/Acre (Right)
+        'cost_basis_per_acre',                  # Cost Basis/Acre (Right)
+        'custom.Asset_Original_Listing_Price',  # Original Listing Price (Right)
+        'percent_of_initial_listing',           # %OLP (Center)
+        'days_on_market',                       # DOM (Center)
+        'price_reductions',                     # Price Reductions (Center)
+        'missing_information'                   # Missing Information (Left)
     ]
     
     # Force include columns
@@ -360,22 +360,43 @@ def display_detailed_tables(df):
             'primary_opportunity_status_label': 'Status',
             'custom.All_State': 'State',
             'custom.All_County': 'County',
-            'missing_information': 'Missing Information',
-            'custom.Asset_Original_Listing_Price': 'Original Listing Price',
+            'custom.All_Asset_Surveyed_Acres': 'Acres',
             'primary_opportunity_value': 'Current Asking Price',
             'custom.Asset_Cost_Basis': 'Cost Basis',
-            'cost_basis_per_acre': 'Cost Basis/Acre',
             'current_margin': 'Profit Margin',
             'current_margin_pct': 'Margin',
             'markup_percentage': 'Markup',
-            'percent_of_initial_listing': '%OLP',
-            'custom.All_Asset_Surveyed_Acres': 'Acres',
             'price_per_acre': 'Asking Price/Acre',
+            'cost_basis_per_acre': 'Cost Basis/Acre',
+            'custom.Asset_Original_Listing_Price': 'Original Listing Price',
+            'percent_of_initial_listing': '%OLP',
             'days_on_market': 'DOM',
-            'price_reductions': 'Price Reductions'
+            'price_reductions': 'Price Reductions',
+            'missing_information': 'Missing Information'
         })
         
-        st.dataframe(display_df, use_container_width=True)
+        # Display table with column configuration for alignment
+        column_config = {
+            'Property Name': st.column_config.TextColumn('Property Name', width='medium'),
+            'Status': st.column_config.TextColumn('Status', width='small'),
+            'State': st.column_config.TextColumn('State', width='small'),
+            'County': st.column_config.TextColumn('County', width='small'),
+            'Acres': st.column_config.NumberColumn('Acres', width='small'),
+            'Current Asking Price': st.column_config.TextColumn('Current Asking Price', width='medium'),
+            'Cost Basis': st.column_config.TextColumn('Cost Basis', width='medium'),
+            'Profit Margin': st.column_config.TextColumn('Profit Margin', width='medium'),
+            'Margin': st.column_config.TextColumn('Margin', width='small'),
+            'Markup': st.column_config.TextColumn('Markup', width='small'),
+            'Asking Price/Acre': st.column_config.TextColumn('Asking Price/Acre', width='medium'),
+            'Cost Basis/Acre': st.column_config.TextColumn('Cost Basis/Acre', width='medium'),
+            'Original Listing Price': st.column_config.TextColumn('Original Listing Price', width='medium'),
+            '%OLP': st.column_config.TextColumn('%OLP', width='small'),
+            'DOM': st.column_config.TextColumn('DOM', width='small'),
+            'Price Reductions': st.column_config.TextColumn('Price Reductions', width='small'),
+            'Missing Information': st.column_config.TextColumn('Missing Information', width='large')
+        }
+        
+        st.dataframe(display_df, use_container_width=True, column_config=column_config)
         
         # Add summary of missing information
         if 'missing_information' in filtered_df.columns:
