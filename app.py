@@ -16,6 +16,12 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
+st.set_page_config(
+    page_title="Land Portfolio Analyzer",
+    page_icon="🏞️",
+    layout="wide"
+)
+
 # Close.com API Configuration
 CLOSE_API_KEY = "api_74RFzgOQpU0hdtf3tHZyWK.4OlJ6xHkGeq8ez1ZkJApdP"
 CLOSE_API_BASE = "https://api.close.com/api/v1"
@@ -139,10 +145,6 @@ def process_lead_counts(df):
         df['lead_query_status'] = "No APN"
     
     return df
-    page_title="Land Portfolio Analyzer",
-    page_icon="🏞️",
-    layout="wide"
-)
 
 def calculate_days_on_market(row):
     """Calculate days on market from MLS listing date"""
