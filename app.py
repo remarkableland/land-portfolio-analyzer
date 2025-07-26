@@ -33,7 +33,6 @@ def calculate_days_on_market(row):
 
 def check_missing_information(row):
     """Check for missing required fields and return status"""
-    # Define required fields with your specific list
     required_fields = {
         'custom.All_APN': 'APN',
         'custom.All_Asset_Surveyed_Acres': 'Surveyed Acres',
@@ -56,11 +55,9 @@ def check_missing_information(row):
     for field_key, field_name in required_fields.items():
         if field_key in row.index:
             value = row[field_key]
-            # Check if value is missing, null, empty, or 'Unknown'
             if pd.isna(value) or value == '' or value == 'Unknown' or value == 'Unknown County':
                 missing_fields.append(field_name)
         else:
-            # Field doesn't exist in dataset
             missing_fields.append(field_name)
     
     if not missing_fields:
@@ -101,7 +98,7 @@ def process_data(df):
     if all(col in processed_df.columns for col in ['custom.Asset_Cost_Basis', 'custom.All_Asset_Surveyed_Acres']):
         processed_df['cost_basis_per_acre'] = processed_df['custom.Asset_Cost_Basis'] / processed_df['custom.All_Asset_Surveyed_Acres']
     
-    # Calculate percent of original listing price (Current Asking Price vs Original Listing Price)
+    # Calculate percent of original listing price
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Original_Listing_Price']):
         processed_df['percent_of_initial_listing'] = (processed_df['primary_opportunity_value'] / 
                                                      processed_df['custom.Asset_Original_Listing_Price'] * 100)
@@ -132,7 +129,6 @@ def display_hierarchy_breakdown(df):
             st.metric("Total Cost Basis", f"${total_cost:,.0f}")
     
     with col4:
-        # Show data completeness metrics
         if 'missing_information' in df.columns:
             complete_count = len(df[df['missing_information'] == '✅ Complete'])
             completion_rate = (complete_count / len(df)) * 100
@@ -142,10 +138,7 @@ def display_hierarchy_breakdown(df):
     
     # Hierarchical breakdown with CORRECT ORDER
     if 'primary_opportunity_status_label' in df.columns:
-        # Define the desired order for opportunity status
         status_order = ['Purchased', 'Listed', 'Under Contract']
-        
-        # Get unique statuses and sort them by our preferred order
         available_statuses = df['primary_opportunity_status_label'].unique()
         ordered_statuses = [status for status in status_order if status in available_statuses]
         
@@ -168,7 +161,7 @@ def display_hierarchy_breakdown(df):
         if status_summary:
             st.dataframe(pd.DataFrame(status_summary), use_container_width=True)
         
-        # Level 2 & 3: Expandable State and County breakdown (in correct order)
+        # Level 2 & 3: Expandable State and County breakdown
         for status in ordered_statuses:
             if pd.notna(status):
                 status_df = df[df['primary_opportunity_status_label'] == status]
@@ -182,7 +175,6 @@ def display_hierarchy_breakdown(df):
                             if pd.notna(state):
                                 state_df = status_df[status_df['custom.All_State'] == state]
                                 
-                                # Count complete vs incomplete properties in this state
                                 complete_count = len(state_df[state_df['missing_information'] == '✅ Complete'])
                                 incomplete_count = len(state_df) - complete_count
                                 
@@ -214,16 +206,14 @@ def create_visualizations(df):
     
     col1, col2 = st.columns(2)
     
-    # Status distribution (with correct order)
+    # Status distribution
     with col1:
         if 'primary_opportunity_status_label' in df.columns:
             st.subheader("Distribution by Status")
             
-            # Define order and get counts in that order
             status_order = ['Purchased', 'Listed', 'Under Contract']
             status_counts = df['primary_opportunity_status_label'].value_counts()
             
-            # Reorder according to our preference
             ordered_labels = []
             ordered_values = []
             for status in status_order:
@@ -232,7 +222,7 @@ def create_visualizations(df):
                     ordered_values.append(status_counts[status])
             
             fig = px.pie(values=ordered_values, names=ordered_labels,
-                        color_discrete_sequence=['#2E8B57', '#4169E1', '#FF6347'])  # Green, Blue, Red
+                        color_discrete_sequence=['#2E8B57', '#4169E1', '#FF6347'])
             st.plotly_chart(fig, use_container_width=True)
     
     # State distribution
@@ -288,31 +278,32 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display
-    display_columns = []
-    column_mapping = {
-        'display_name': 'Property Name',
-        'primary_opportunity_status_label': 'Status',
-        'custom.All_State': 'State',
-        'custom.All_County': 'County',
-        'missing_information': 'Missing Information',
-        'custom.Asset_Initial_Listing_Price': 'Initial Listing Price',
-        'primary_opportunity_value': 'Current Asking Price',
-        'custom.Asset_Cost_Basis': 'Cost Basis',
-        'current_margin': 'Margin ($)',
-        'current_margin_pct': 'Margin (%)',
-        'markup_percentage': 'Markup %',
-        'percent_of_initial_listing': 'Percent of Original Listing %',
-        'custom.All_Asset_Surveyed_Acres': 'Acres',
-        'price_per_acre': 'Asking Price Per Acre',
-        'days_on_market': 'Days on Market',
-        'price_reductions': 'Price Reductions'
-    }
+    # Select key columns for display - reordered as requested
+    desired_columns = [
+        'display_name',                         # Property Name
+        'primary_opportunity_status_label',     # Status
+        'custom.All_State',                     # State
+        'custom.All_County',                    # County
+        'custom.All_Asset_Surveyed_Acres',      # Acres
+        'custom.Asset_Original_Listing_Price',  # Original Listing Price
+        'percent_of_initial_listing',           # %OLP
+        'primary_opportunity_value',            # Current Asking Price
+        'custom.Asset_Cost_Basis',              # Cost Basis
+        'current_margin',                       # Profit Margin
+        'current_margin_pct',                   # Margin
+        'markup_percentage',                    # Markup
+        'price_per_acre',                       # Asking Price/Acre
+        'cost_basis_per_acre',                  # Cost Basis/Acre
+        'days_on_market',                       # DOM
+        'price_reductions',                     # Price Reductions
+        'missing_information'                   # Missing Information (at the end)
+    ]
     
-    # Only include columns that exist in the dataframe
-    for original_col, display_col in column_mapping.items():
-        if original_col in filtered_df.columns:
-            display_columns.append(original_col)
+    # Force include columns
+    display_columns = []
+    for col in desired_columns:
+        if col in filtered_df.columns:
+            display_columns.append(col)
     
     if display_columns:
         # FORCE include Original Listing Price if it exists
@@ -362,8 +353,6 @@ def display_detailed_tables(df):
             display_df['price_reductions'] = display_df['price_reductions'].apply(
                 lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
             )
-        
-        # Don't format the missing_information column - keep it as is for readability
         
         # Rename columns for display with updated headers
         display_df = display_df.rename(columns={
@@ -429,7 +418,7 @@ def display_detailed_tables(df):
 
 def main():
     st.title("🏞️ Land Portfolio Analyzer")
-    st.markdown("### Hierarchical Analysis: Status → State → County")
+    st.markdown("### Hierarchical Analysis: Opportunity Status → State → County")
     st.markdown("**Status Order**: Purchased → Listed → Under Contract")
     
     uploaded_file = st.file_uploader("Upload your CRM CSV export", type=['csv'])
@@ -453,7 +442,7 @@ def main():
             st.divider()
             
             # Detailed tables with filtering
-            display_detailed_tables(processed_df)https://github.com/remarkableland/land-portfolio-analyzer/blob/main/app.py
+            display_detailed_tables(processed_df)
             
             # Raw data preview
             with st.expander("🔍 Raw Data Preview"):
