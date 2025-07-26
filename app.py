@@ -222,86 +222,105 @@ def test_close_api_connection():
         ("API-Key", api_key),  # Some APIs use custom headers
     ]
     
+    # Test with different endpoints to see which one works
+    test_endpoints = [
+        ("/me/", "User Profile"),
+        ("/organization/", "Organization Info"),
+        ("/lead/", "Leads")
+    ]
+    
     for auth_type, auth_value in auth_methods:
-        try:
-            headers = {
-                "Authorization": auth_value,
-                "Content-Type": "application/json"
-            }
-            
-            st.write(f"🔍 Trying authentication method: {auth_type}")
-            
-            # Get a few leads to see their structure
-            response = requests.get(
-                f"{CLOSE_API_BASE}/lead/",
-                headers=headers,
-                params={"_limit": 5},  # Just get 5 leads to examine
-                timeout=10
-            )
-            
-            st.write(f"📊 Response status: {response.status_code}")
-            
-            # If this method works, use it
-            if response.status_code == 200:
-                st.success(f"✅ Authentication successful with {auth_type} method!")
+        st.write(f"🔍 Trying authentication method: {auth_type}")
+        
+        for endpoint, endpoint_name in test_endpoints:
+            try:
+                headers = {
+                    "Authorization": auth_value,
+                    "Content-Type": "application/json"
+                }
                 
-                data = response.json()
-                leads = data.get("data", [])
+                # Get a few leads to see their structure
+                response = requests.get(
+                    f"{CLOSE_API_BASE}{endpoint}",
+                    headers=headers,
+                    params={"_limit": 5} if endpoint == "/lead/" else {},
+                    timeout=10
+                )
                 
-                if leads:
-                    first_lead = leads[0]
+                st.write(f"📊 {endpoint_name} response: {response.status_code}")
+                
+                # If this method works with ANY endpoint, that's progress
+                if response.status_code == 200:
+                    st.success(f"✅ Authentication successful with {auth_type} method on {endpoint_name}!")
                     
-                    # Look for APN-related fields
-                    apn_fields = []
-                    for key in first_lead.keys():
-                        if 'apn' in key.lower() or 'APN' in key:
-                            apn_fields.append(key)
+                    data = response.json()
                     
-                    # Also check custom fields
-                    custom_fields = []
-                    for key in first_lead.keys():
-                        if key.startswith('custom.'):
-                            custom_fields.append(key)
-                    
-                    return {
-                        "success": True,
-                        "auth_method": auth_type,
-                        "total_leads_in_system": len(leads),
-                        "sample_lead_keys": list(first_lead.keys()),
-                        "apn_related_fields": apn_fields,
-                        "custom_fields": custom_fields,
-                        "first_lead_sample": {k: v for k, v in first_lead.items() if k in ['name', 'status_label'] + apn_fields[:3]}
-                    }
+                    # If it's the leads endpoint, process normally
+                    if endpoint == "/lead/":
+                        leads = data.get("data", [])
+                        
+                        if leads:
+                            first_lead = leads[0]
+                            
+                            # Look for APN-related fields
+                            apn_fields = []
+                            for key in first_lead.keys():
+                                if 'apn' in key.lower() or 'APN' in key:
+                                    apn_fields.append(key)
+                            
+                            # Also check custom fields
+                            custom_fields = []
+                            for key in first_lead.keys():
+                                if key.startswith('custom.'):
+                                    custom_fields.append(key)
+                            
+                            return {
+                                "success": True,
+                                "auth_method": auth_type,
+                                "total_leads_in_system": len(leads),
+                                "sample_lead_keys": list(first_lead.keys()),
+                                "apn_related_fields": apn_fields,
+                                "custom_fields": custom_fields,
+                                "first_lead_sample": {k: v for k, v in first_lead.items() if k in ['name', 'status_label'] + apn_fields[:3]}
+                            }
+                        else:
+                            return {
+                                "success": True,
+                                "auth_method": auth_type,
+                                "total_leads_in_system": 0,
+                                "message": "Authentication successful but no leads found in system"
+                            }
+                    else:
+                        # For other endpoints, just show that auth works
+                        st.info(f"✅ API key works with {endpoint_name}. Trying leads endpoint...")
+                        continue
+                        
+                elif response.status_code == 401:
+                    st.warning(f"❌ {auth_type} authentication failed on {endpoint_name}: 401 Unauthorized")
+                elif response.status_code == 403:
+                    st.warning(f"❌ {auth_type} authentication works but no permission for {endpoint_name}: 403 Forbidden")
                 else:
-                    return {
-                        "success": True,
-                        "auth_method": auth_type,
-                        "total_leads_in_system": 0,
-                        "message": "Authentication successful but no leads found in system"
-                    }
-            
-            elif response.status_code == 401:
-                st.warning(f"❌ {auth_type} authentication failed: 401 Unauthorized")
+                    st.warning(f"❌ {auth_type} failed on {endpoint_name} with status: {response.status_code}")
+                    
+            except Exception as e:
+                st.warning(f"❌ {auth_type} method error on {endpoint_name}: {str(e)}")
                 continue
-            else:
-                st.warning(f"❌ {auth_type} failed with status: {response.status_code}")
-                continue
-                
-        except Exception as e:
-            st.warning(f"❌ {auth_type} method error: {str(e)}")
-            continue
     
     # If all methods failed
     return {
         "success": False,
-        "error": "All authentication methods failed",
-        "message": "Please verify your API key and permissions",
+        "error": "All authentication methods failed on all endpoints",
+        "message": "API key appears to be completely invalid or expired",
         "tried_methods": [method[0] for method in auth_methods],
+        "tried_endpoints": [endpoint[1] for endpoint in test_endpoints],
         "instructions": [
-            "1. Verify the API key is correct",
-            "2. Check that the API key has 'read' permissions for leads",
-            "3. Make sure the API key is for the correct Close.com organization",
-            "4. Try regenerating the API key in Close.com settings"
+            "1. **DELETE** the current API key in Close.com",
+            "2. **CREATE** a new API key with these exact settings:",
+            "   - Name: Portfolio Analyzer", 
+            "   - Permissions: ✅ Read Leads (minimum)",
+            "   - Scope: Your organization",
+            "3. **COPY** the new key carefully (no spaces)",
+            "4. **PASTE** it in the sidebar and test again"
         ]
     }
 
