@@ -95,7 +95,62 @@ def query_close_leads_by_apn(apn):
     except Exception as e:
         return {"count": 0, "status": f"Error: {str(e)[:30]}", "debug": f"General error: {str(e)}"}
 
-def process_lead_counts(df):
+def test_close_api_connection():
+    """Test Close.com API connection and show available fields"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {CLOSE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        # Get a few leads to see their structure
+        response = requests.get(
+            f"{CLOSE_API_BASE}/lead/",
+            headers=headers,
+            params={"_limit": 5},  # Just get 5 leads to examine
+            timeout=10
+        )
+        
+        response.raise_for_status()
+        data = response.json()
+        
+        leads = data.get("data", [])
+        
+        if leads:
+            first_lead = leads[0]
+            
+            # Look for APN-related fields
+            apn_fields = []
+            for key in first_lead.keys():
+                if 'apn' in key.lower() or 'APN' in key:
+                    apn_fields.append(key)
+            
+            # Also check custom fields
+            custom_fields = []
+            for key in first_lead.keys():
+                if key.startswith('custom.'):
+                    custom_fields.append(key)
+            
+            return {
+                "success": True,
+                "total_leads_in_system": len(leads),
+                "sample_lead_keys": list(first_lead.keys()),
+                "apn_related_fields": apn_fields,
+                "custom_fields": custom_fields,
+                "first_lead_sample": {k: v for k, v in first_lead.items() if k in ['name', 'status_label'] + apn_fields[:3]}
+            }
+        else:
+            return {
+                "success": True,
+                "total_leads_in_system": 0,
+                "message": "No leads found in system"
+            }
+            
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
     """Add lead count data from Close.com to the dataframe"""
     # Initialize lead count column
     df['lead_count'] = 0
