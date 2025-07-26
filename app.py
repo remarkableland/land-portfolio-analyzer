@@ -119,23 +119,24 @@ def fetch_zillow_data(url):
 
 def process_zillow_data(df):
     """Process Zillow URLs and add views/saves data"""
+    # Initialize columns first
+    df['zillow_views'] = "N/A"
+    df['zillow_saves'] = "N/A"
+    df['zillow_status'] = "Not processed"
+    
     if not BS4_AVAILABLE:
-        st.warning("⚠️ BeautifulSoup library not available. Zillow data extraction disabled. Install with: pip install beautifulsoup4")
-        df['zillow_views'] = "N/A"
-        df['zillow_saves'] = "N/A"
+        st.warning("⚠️ BeautifulSoup library not available. Zillow data extraction disabled.")
+        st.info("💡 **Manual Entry Option**: You can manually enter Zillow data in the table below if needed.")
+        df['zillow_views'] = "Library missing"
+        df['zillow_saves'] = "Library missing"
         df['zillow_status'] = "Library missing"
         return df
         
     if 'custom.Asset_Zillow_URL' not in df.columns:
-        df['zillow_views'] = "N/A"
-        df['zillow_saves'] = "N/A"
+        df['zillow_views'] = "No Zillow column"
+        df['zillow_saves'] = "No Zillow column"
         df['zillow_status'] = "No Zillow column"
         return df
-    
-    # Initialize columns
-    df['zillow_views'] = "N/A"
-    df['zillow_saves'] = "N/A"
-    df['zillow_status'] = "Not processed"
     
     # Only process rows that have Zillow URLs
     zillow_rows = df[df['custom.Asset_Zillow_URL'].notna() & 
@@ -143,32 +144,63 @@ def process_zillow_data(df):
                     (df['custom.Asset_Zillow_URL'] != 'nan')].index
     
     if len(zillow_rows) > 0:
-        st.info(f"🔍 Processing {len(zillow_rows)} Zillow URL(s) for views and saves data...")
+        # Show manual entry option
+        st.info("🌐 **Zillow Data Options:**")
         
-        progress_bar = st.progress(0)
+        col1, col2 = st.columns(2)
         
-        for i, idx in enumerate(zillow_rows):
-            url = df.loc[idx, 'custom.Asset_Zillow_URL']
+        with col1:
+            if st.button("🤖 Try Automatic Extraction", type="secondary"):
+                st.info(f"🔍 Processing {len(zillow_rows)} Zillow URL(s) for views and saves data...")
+                
+                progress_bar = st.progress(0)
+                
+                for i, idx in enumerate(zillow_rows):
+                    url = df.loc[idx, 'custom.Asset_Zillow_URL']
+                    
+                    # Update progress
+                    progress = (i + 1) / len(zillow_rows)
+                    progress_bar.progress(progress)
+                    
+                    # Fetch data
+                    try:
+                        zillow_data = fetch_zillow_data(url)
+                        df.loc[idx, 'zillow_views'] = zillow_data['views']
+                        df.loc[idx, 'zillow_saves'] = zillow_data['saves']
+                        df.loc[idx, 'zillow_status'] = zillow_data['status']
+                    except Exception as e:
+                        df.loc[idx, 'zillow_views'] = "Error"
+                        df.loc[idx, 'zillow_saves'] = "Error"
+                        df.loc[idx, 'zillow_status'] = f"Error: {str(e)[:30]}"
+                
+                progress_bar.empty()
+                st.experimental_rerun()
+        
+        with col2:
+            st.info("📝 **Manual Entry**: If automatic extraction fails, you can manually check the Zillow URL and enter the data:")
             
-            # Update progress
-            progress = (i + 1) / len(zillow_rows)
-            progress_bar.progress(progress)
-            
-            # Fetch data
-            zillow_data = fetch_zillow_data(url)
-            
-            # Update dataframe
-            df.loc[idx, 'zillow_views'] = zillow_data['views']
-            df.loc[idx, 'zillow_saves'] = zillow_data['saves']
-            df.loc[idx, 'zillow_status'] = zillow_data['status']
-        
-        progress_bar.empty()
-        
-        success_count = len(df[df['zillow_status'] == 'Success'])
-        st.success(f"✅ Completed processing Zillow data. {success_count} successful extractions.")
-        
-        if success_count < len(zillow_rows):
-            st.warning("⚠️ Some Zillow URLs could not be processed. This may be due to rate limiting, changed page structure, or access restrictions.")
+            # Show properties with Zillow URLs for manual entry
+            for idx in zillow_rows:
+                property_name = df.loc[idx, 'display_name'] if 'display_name' in df.columns else f"Property {idx}"
+                zillow_url = df.loc[idx, 'custom.Asset_Zillow_URL']
+                
+                st.write(f"**{property_name}**")
+                st.write(f"[🔗 Open Zillow Listing]({zillow_url})")
+                
+                col_views, col_saves = st.columns(2)
+                with col_views:
+                    manual_views = st.text_input(f"Views for {property_name[:20]}...", key=f"views_{idx}", placeholder="e.g., 127")
+                with col_saves:
+                    manual_saves = st.text_input(f"Saves for {property_name[:20]}...", key=f"saves_{idx}", placeholder="e.g., 23")
+                
+                if manual_views or manual_saves:
+                    df.loc[idx, 'zillow_views'] = manual_views if manual_views else "N/A"
+                    df.loc[idx, 'zillow_saves'] = manual_saves if manual_saves else "N/A"
+                    df.loc[idx, 'zillow_status'] = "Manual entry"
+                
+                st.divider()
+    else:
+        st.info("ℹ️ No Zillow URLs found in the data.")
     
     return df
     """Count price reductions based on trailing digit"""
