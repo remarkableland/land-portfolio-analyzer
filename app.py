@@ -31,24 +31,28 @@ st.set_page_config(
 def fetch_zillow_data(url):
     """Fetch views and saves data from Zillow URL"""
     if not BS4_AVAILABLE:
-        return {"views": "N/A", "saves": "N/A", "status": "BeautifulSoup not available"}
+        return {"views": "Library missing", "saves": "Library missing", "status": "BeautifulSoup not available"}
     
     if pd.isna(url) or url == '' or not isinstance(url, str):
         return {"views": "N/A", "saves": "N/A", "status": "No URL"}
     
     try:
         # Add delay to be respectful to Zillow's servers
-        time.sleep(1)
+        time.sleep(2)  # Increased delay
         
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
+            'Accept-Encoding': 'gzip, deflate, br',
             'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none'
         }
         
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
         
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -57,65 +61,114 @@ def fetch_zillow_data(url):
         views = "N/A"
         saves = "N/A"
         
-        # Look for views data (various possible patterns)
-        view_patterns = [
-            r'(\d+)\s*views?',
-            r'Viewed\s*(\d+)\s*times?',
-            r'(\d+)\s*page\s*views?',
-        ]
-        
-        # Look for saves data (various possible patterns)
-        save_patterns = [
-            r'(\d+)\s*saves?',
-            r'Saved\s*(\d+)\s*times?',
-            r'(\d+)\s*favorites?',
-            r'(\d+)\s*hearts?',
-        ]
-        
-        # Search in text content
+        # Enhanced patterns to look for views/saves data
         page_text = soup.get_text().lower()
+        
+        # Multiple view patterns
+        view_patterns = [
+            r'(\d{1,6})\s*views?',
+            r'viewed\s*(\d{1,6})\s*times?',
+            r'(\d{1,6})\s*page\s*views?',
+            r'views?\s*(\d{1,6})',
+            r'(\d{1,6})\s*people\s*viewed',
+            r'seen\s*by\s*(\d{1,6})',
+            r'interest\s*(\d{1,6})',
+            r'(\d{1,6})\s*interested'
+        ]
+        
+        # Multiple save/favorite patterns
+        save_patterns = [
+            r'(\d{1,6})\s*saves?',
+            r'saved\s*(\d{1,6})\s*times?',
+            r'(\d{1,6})\s*favorites?',
+            r'(\d{1,6})\s*hearts?',
+            r'favorited\s*(\d{1,6})',
+            r'(\d{1,6})\s*people\s*saved',
+            r'bookmarked\s*(\d{1,6})',
+            r'(\d{1,6})\s*bookmarks?'
+        ]
         
         # Try to find views
         for pattern in view_patterns:
             match = re.search(pattern, page_text, re.IGNORECASE)
             if match:
-                views = match.group(1)
-                break
+                potential_views = match.group(1)
+                # Validate it's a reasonable number (not too high)
+                if int(potential_views) < 1000000:  # Less than 1M views
+                    views = potential_views
+                    break
         
         # Try to find saves
         for pattern in save_patterns:
             match = re.search(pattern, page_text, re.IGNORECASE)
             if match:
-                saves = match.group(1)
-                break
+                potential_saves = match.group(1)
+                # Validate it's a reasonable number
+                if int(potential_saves) < 100000:  # Less than 100K saves
+                    saves = potential_saves
+                    break
         
-        # Look for specific Zillow elements (these may change over time)
-        # Views might be in specific divs or spans
-        view_elements = soup.find_all(text=re.compile(r'\d+\s*views?', re.IGNORECASE))
-        if view_elements and views == "N/A":
-            try:
-                views = re.search(r'(\d+)', view_elements[0]).group(1)
-            except:
-                pass
+        # Look for specific HTML elements with common Zillow classes/IDs
+        view_selectors = [
+            '[data-testid*="view"]',
+            '[class*="view"]',
+            '[id*="view"]',
+            'span:contains("view")',
+            'div:contains("view")'
+        ]
         
-        # Saves might be in specific elements
-        save_elements = soup.find_all(text=re.compile(r'\d+\s*saves?', re.IGNORECASE))
-        if save_elements and saves == "N/A":
-            try:
-                saves = re.search(r'(\d+)', save_elements[0]).group(1)
-            except:
-                pass
+        save_selectors = [
+            '[data-testid*="save"]',
+            '[data-testid*="favorite"]',
+            '[class*="save"]',
+            '[class*="favorite"]',
+            'span:contains("save")',
+            'span:contains("favorite")'
+        ]
+        
+        # Try CSS selectors if regex didn't work
+        if views == "N/A":
+            for selector in view_selectors:
+                try:
+                    elements = soup.select(selector)
+                    for element in elements:
+                        text = element.get_text().lower()
+                        match = re.search(r'(\d{1,6})', text)
+                        if match and 'view' in text:
+                            views = match.group(1)
+                            break
+                    if views != "N/A":
+                        break
+                except:
+                    continue
+        
+        if saves == "N/A":
+            for selector in save_selectors:
+                try:
+                    elements = soup.select(selector)
+                    for element in elements:
+                        text = element.get_text().lower()
+                        match = re.search(r'(\d{1,6})', text)
+                        if match and ('save' in text or 'favorite' in text):
+                            saves = match.group(1)
+                            break
+                    if saves != "N/A":
+                        break
+                except:
+                    continue
+        
+        status = "Success" if views != "N/A" or saves != "N/A" else "No data found"
         
         return {
             "views": views,
             "saves": saves,
-            "status": "Success" if views != "N/A" or saves != "N/A" else "No data found"
+            "status": status
         }
         
     except requests.exceptions.RequestException as e:
-        return {"views": "Error", "saves": "Error", "status": f"Request failed: {str(e)[:50]}"}
+        return {"views": "Request Error", "saves": "Request Error", "status": f"Request failed: {str(e)[:30]}"}
     except Exception as e:
-        return {"views": "Error", "saves": "Error", "status": f"Parse error: {str(e)[:50]}"}
+        return {"views": "Parse Error", "saves": "Parse Error", "status": f"Error: {str(e)[:30]}"}
 
 def process_zillow_data(df):
     """Process Zillow URLs and add views/saves data"""
@@ -147,58 +200,62 @@ def process_zillow_data(df):
         # Show manual entry option
         st.info("🌐 **Zillow Data Options:**")
         
-        col1, col2 = st.columns(2)
+        # Show properties with Zillow URLs for manual entry
+        st.subheader("📝 Manual Entry (Recommended)")
+        st.write("Click the Zillow links below to view the listings and manually enter the data:")
         
-        with col1:
-            if st.button("🤖 Try Automatic Extraction", type="secondary"):
-                st.info(f"🔍 Processing {len(zillow_rows)} Zillow URL(s) for views and saves data...")
-                
-                progress_bar = st.progress(0)
-                
-                for i, idx in enumerate(zillow_rows):
-                    url = df.loc[idx, 'custom.Asset_Zillow_URL']
-                    
-                    # Update progress
-                    progress = (i + 1) / len(zillow_rows)
-                    progress_bar.progress(progress)
-                    
-                    # Fetch data
-                    try:
-                        zillow_data = fetch_zillow_data(url)
-                        df.loc[idx, 'zillow_views'] = zillow_data['views']
-                        df.loc[idx, 'zillow_saves'] = zillow_data['saves']
-                        df.loc[idx, 'zillow_status'] = zillow_data['status']
-                    except Exception as e:
-                        df.loc[idx, 'zillow_views'] = "Error"
-                        df.loc[idx, 'zillow_saves'] = "Error"
-                        df.loc[idx, 'zillow_status'] = f"Error: {str(e)[:30]}"
-                
-                progress_bar.empty()
-                st.rerun()
-        
-        with col2:
-            st.info("📝 **Manual Entry**: If automatic extraction fails, you can manually check the Zillow URL and enter the data:")
+        for idx in zillow_rows:
+            property_name = df.loc[idx, 'display_name'] if 'display_name' in df.columns else f"Property {idx}"
+            zillow_url = df.loc[idx, 'custom.Asset_Zillow_URL']
             
-            # Show properties with Zillow URLs for manual entry
-            for idx in zillow_rows:
-                property_name = df.loc[idx, 'display_name'] if 'display_name' in df.columns else f"Property {idx}"
-                zillow_url = df.loc[idx, 'custom.Asset_Zillow_URL']
-                
+            with st.container():
                 st.write(f"**{property_name}**")
-                st.write(f"[🔗 Open Zillow Listing]({zillow_url})")
+                st.markdown(f"[🔗 Open Zillow Listing in New Tab]({zillow_url})")
                 
-                col_views, col_saves = st.columns(2)
+                col_views, col_saves, col_status = st.columns(3)
                 with col_views:
-                    manual_views = st.text_input(f"Views for {property_name[:20]}...", key=f"views_{idx}", placeholder="e.g., 127")
+                    manual_views = st.text_input(f"Views", key=f"views_{idx}", placeholder="e.g., 127", help="Number of times viewed on Zillow")
                 with col_saves:
-                    manual_saves = st.text_input(f"Saves for {property_name[:20]}...", key=f"saves_{idx}", placeholder="e.g., 23")
-                
-                if manual_views or manual_saves:
-                    df.loc[idx, 'zillow_views'] = manual_views if manual_views else "N/A"
-                    df.loc[idx, 'zillow_saves'] = manual_saves if manual_saves else "N/A"
-                    df.loc[idx, 'zillow_status'] = "Manual entry"
+                    manual_saves = st.text_input(f"Saves", key=f"saves_{idx}", placeholder="e.g., 23", help="Number of times saved/favorited")
+                with col_status:
+                    if st.button(f"Update Data", key=f"update_{idx}", type="secondary"):
+                        df.loc[idx, 'zillow_views'] = manual_views if manual_views else "N/A"
+                        df.loc[idx, 'zillow_saves'] = manual_saves if manual_saves else "N/A"
+                        df.loc[idx, 'zillow_status'] = "Manual entry"
+                        st.success("Updated!")
+                        st.rerun()
                 
                 st.divider()
+        
+        # Automatic extraction as secondary option
+        st.subheader("🤖 Automatic Extraction (May Not Work)")
+        st.warning("⚠️ Automatic extraction often fails due to Zillow's bot protection. Manual entry above is recommended.")
+        
+        if st.button("🤖 Try Automatic Extraction", type="secondary"):
+            st.info(f"🔍 Processing {len(zillow_rows)} Zillow URL(s) for views and saves data...")
+            
+            progress_bar = st.progress(0)
+            
+            for i, idx in enumerate(zillow_rows):
+                url = df.loc[idx, 'custom.Asset_Zillow_URL']
+                
+                # Update progress
+                progress = (i + 1) / len(zillow_rows)
+                progress_bar.progress(progress)
+                
+                # Fetch data
+                try:
+                    zillow_data = fetch_zillow_data(url)
+                    df.loc[idx, 'zillow_views'] = zillow_data['views']
+                    df.loc[idx, 'zillow_saves'] = zillow_data['saves']
+                    df.loc[idx, 'zillow_status'] = zillow_data['status']
+                except Exception as e:
+                    df.loc[idx, 'zillow_views'] = "Error"
+                    df.loc[idx, 'zillow_saves'] = "Error"
+                    df.loc[idx, 'zillow_status'] = f"Error: {str(e)[:30]}"
+            
+            progress_bar.empty()
+            st.rerun()
     else:
         st.info("ℹ️ No Zillow URLs found in the data.")
     
