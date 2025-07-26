@@ -374,6 +374,9 @@ def display_detailed_tables(df):
             'price_reductions': 'Price Reductions'
         })
         
+        # DEBUG: Show columns after rename
+        st.write(f"**FINAL COLUMNS AFTER RENAME:** {list(display_df.columns)}")
+        
         st.dataframe(display_df, use_container_width=True)
         
         # Add summary of missing information
