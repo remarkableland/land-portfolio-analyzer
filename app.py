@@ -4,6 +4,10 @@ import numpy as np
 import plotly.express as px
 from datetime import datetime
 from io import BytesIO
+import requests
+from bs4 import BeautifulSoup
+import re
+import time
 try:
     from reportlab.lib.pagesizes import letter, A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -20,7 +24,139 @@ st.set_page_config(
     layout="wide"
 )
 
-def count_price_reductions(price):
+def fetch_zillow_data(url):
+    """Fetch views and saves data from Zillow URL"""
+    if pd.isna(url) or url == '' or not isinstance(url, str):
+        return {"views": "N/A", "saves": "N/A", "status": "No URL"}
+    
+    try:
+        # Add delay to be respectful to Zillow's servers
+        time.sleep(1)
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Initialize results
+        views = "N/A"
+        saves = "N/A"
+        
+        # Look for views data (various possible patterns)
+        view_patterns = [
+            r'(\d+)\s*views?',
+            r'Viewed\s*(\d+)\s*times?',
+            r'(\d+)\s*page\s*views?',
+        ]
+        
+        # Look for saves data (various possible patterns)
+        save_patterns = [
+            r'(\d+)\s*saves?',
+            r'Saved\s*(\d+)\s*times?',
+            r'(\d+)\s*favorites?',
+            r'(\d+)\s*hearts?',
+        ]
+        
+        # Search in text content
+        page_text = soup.get_text().lower()
+        
+        # Try to find views
+        for pattern in view_patterns:
+            match = re.search(pattern, page_text, re.IGNORECASE)
+            if match:
+                views = match.group(1)
+                break
+        
+        # Try to find saves
+        for pattern in save_patterns:
+            match = re.search(pattern, page_text, re.IGNORECASE)
+            if match:
+                saves = match.group(1)
+                break
+        
+        # Look for specific Zillow elements (these may change over time)
+        # Views might be in specific divs or spans
+        view_elements = soup.find_all(text=re.compile(r'\d+\s*views?', re.IGNORECASE))
+        if view_elements and views == "N/A":
+            try:
+                views = re.search(r'(\d+)', view_elements[0]).group(1)
+            except:
+                pass
+        
+        # Saves might be in specific elements
+        save_elements = soup.find_all(text=re.compile(r'\d+\s*saves?', re.IGNORECASE))
+        if save_elements and saves == "N/A":
+            try:
+                saves = re.search(r'(\d+)', save_elements[0]).group(1)
+            except:
+                pass
+        
+        return {
+            "views": views,
+            "saves": saves,
+            "status": "Success" if views != "N/A" or saves != "N/A" else "No data found"
+        }
+        
+    except requests.exceptions.RequestException as e:
+        return {"views": "Error", "saves": "Error", "status": f"Request failed: {str(e)[:50]}"}
+    except Exception as e:
+        return {"views": "Error", "saves": "Error", "status": f"Parse error: {str(e)[:50]}"}
+
+def process_zillow_data(df):
+    """Process Zillow URLs and add views/saves data"""
+    if 'custom.Asset_Zillow_URL' not in df.columns:
+        df['zillow_views'] = "N/A"
+        df['zillow_saves'] = "N/A"
+        df['zillow_status'] = "No Zillow column"
+        return df
+    
+    # Initialize columns
+    df['zillow_views'] = "N/A"
+    df['zillow_saves'] = "N/A"
+    df['zillow_status'] = "Not processed"
+    
+    # Only process rows that have Zillow URLs
+    zillow_rows = df[df['custom.Asset_Zillow_URL'].notna() & 
+                    (df['custom.Asset_Zillow_URL'] != '') & 
+                    (df['custom.Asset_Zillow_URL'] != 'nan')].index
+    
+    if len(zillow_rows) > 0:
+        st.info(f"🔍 Processing {len(zillow_rows)} Zillow URL(s) for views and saves data...")
+        
+        progress_bar = st.progress(0)
+        
+        for i, idx in enumerate(zillow_rows):
+            url = df.loc[idx, 'custom.Asset_Zillow_URL']
+            
+            # Update progress
+            progress = (i + 1) / len(zillow_rows)
+            progress_bar.progress(progress)
+            
+            # Fetch data
+            zillow_data = fetch_zillow_data(url)
+            
+            # Update dataframe
+            df.loc[idx, 'zillow_views'] = zillow_data['views']
+            df.loc[idx, 'zillow_saves'] = zillow_data['saves']
+            df.loc[idx, 'zillow_status'] = zillow_data['status']
+        
+        progress_bar.empty()
+        
+        success_count = len(df[df['zillow_status'] == 'Success'])
+        st.success(f"✅ Completed processing Zillow data. {success_count} successful extractions.")
+        
+        if success_count < len(zillow_rows):
+            st.warning("⚠️ Some Zillow URLs could not be processed. This may be due to rate limiting, changed page structure, or access restrictions.")
+    
+    return df
     """Count price reductions based on trailing digit"""
     if pd.isna(price) or price == 0:
         return 0
@@ -117,6 +253,9 @@ def process_data(df):
     
     # Check missing information for each property
     processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
+    
+    # Process Zillow data if URLs exist
+    processed_df = process_zillow_data(processed_df)
     
     return processed_df
 
@@ -336,6 +475,7 @@ def generate_missing_fields_checklist_pdf(df):
         'custom.Asset_MLS#': 'MLS#',
         'custom.Asset_MLS_Listing_Date': 'MLS Listing Date',
         'custom.Asset_Street_Address': 'Street Address',
+        'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
         'avg_one_time_active_opportunity_value': 'Avg One Time Active Opportunity Value'
     }
     
@@ -501,7 +641,7 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display - NEW ORDER with APN and Last Mapping Audit added
+    # Select key columns for display - NEW ORDER with APN, Last Mapping Audit, and Zillow data added
     desired_columns = [
         'display_name',                         # Property Name (Left)
         'primary_opportunity_status_label',     # Status (Left)
@@ -521,6 +661,8 @@ def display_detailed_tables(df):
         'days_on_market',                       # DOM (Center)
         'price_reductions',                     # Price Reductions (Center)
         'custom.Asset_Last_Mapping_Audit',     # Last Mapping Audit (Center)
+        'zillow_views',                         # Zillow Views (Center)
+        'zillow_saves',                         # Zillow Saves (Center)
         'missing_information'                   # Missing Information (Left)
     ]
     
@@ -634,6 +776,8 @@ def display_detailed_tables(df):
             'days_on_market': 'DOM',
             'price_reductions': 'Price Reductions',
             'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
+            'zillow_views': 'Zillow Views',
+            'zillow_saves': 'Zillow Saves',
             'missing_information': 'Missing Information'
         })
         
@@ -658,7 +802,9 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* DOM */
         .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
         .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Map Audit */
-        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
+        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: center !important; } /* Zillow Views */
+        .dataframe th:nth-child(20), .dataframe td:nth-child(20) { text-align: center !important; } /* Zillow Saves */
+        .dataframe th:nth-child(21), .dataframe td:nth-child(21) { text-align: left !important; }   /* Missing Information */
         </style>
         """, unsafe_allow_html=True)
         
@@ -767,6 +913,7 @@ def main():
         - **Land ID Share URL** (custom.Asset_Land_ID_Share_URL)
         - **MLS#** (custom.Asset_MLS#)
         - **MLS Listing Date** (custom.Asset_MLS_Listing_Date)
+        - **Last Map Audit** (custom.Asset_Last_Mapping_Audit)
         - **Street Address** (custom.Asset_Street_Address)
         - **Avg One Time Active Opportunity Value** (avg_one_time_active_opportunity_value)
         
