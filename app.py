@@ -64,7 +64,9 @@ def query_close_leads_by_apn(apn):
             "query_used": query,
             "total_leads_found": len(leads),
             "response_has_data": "data" in data,
-            "api_response_keys": list(data.keys()) if isinstance(data, dict) else "Not a dict"
+            "api_response_keys": list(data.keys()) if isinstance(data, dict) else "Not a dict",
+            "http_status": response.status_code,
+            "response_size": len(str(data))
         }
         
         # If we found leads, let's see their structure
@@ -72,6 +74,9 @@ def query_close_leads_by_apn(apn):
             first_lead = leads[0]
             debug_info["first_lead_keys"] = list(first_lead.keys()) if isinstance(first_lead, dict) else "Not a dict"
             debug_info["first_lead_status"] = first_lead.get("status_label", "NO STATUS FIELD")
+            # Check if the lead actually has the APN field
+            debug_info["first_lead_has_apn"] = "custom.All_APN" in first_lead
+            debug_info["first_lead_apn_value"] = first_lead.get("custom.All_APN", "NO APN FIELD")
         
         # Filter OUT leads with excluded statuses
         excluded_statuses = ["Remarkable Asset", "Remarkable Sold", "Neighbor"]
@@ -91,9 +96,25 @@ def query_close_leads_by_apn(apn):
         }
         
     except requests.exceptions.RequestException as e:
-        return {"count": 0, "status": f"API Error: {str(e)[:30]}", "debug": f"Request failed: {str(e)}"}
+        return {
+            "count": 0, 
+            "status": f"API Error: {str(e)[:50]}", 
+            "debug": {
+                "error_type": "RequestException",
+                "error_message": str(e),
+                "query_attempted": f'custom.All_APN:"{clean_apn}"'
+            }
+        }
     except Exception as e:
-        return {"count": 0, "status": f"Error: {str(e)[:30]}", "debug": f"General error: {str(e)}"}
+        return {
+            "count": 0, 
+            "status": f"Error: {str(e)[:50]}", 
+            "debug": {
+                "error_type": "General Exception",
+                "error_message": str(e),
+                "query_attempted": f'custom.All_APN:"{clean_apn}"'
+            }
+        }
 
 def test_close_api_connection():
     """Test Close.com API connection and show available fields"""
@@ -167,6 +188,12 @@ def process_lead_counts(df):
         st.info(f"🔍 Querying Close.com for lead data on {len(apn_rows)} properties...")
         st.info("📊 Filtering out statuses: 'Remarkable Asset', 'Remarkable Sold', 'Neighbor'")
         
+        # Add API connection test button for debugging
+        if st.button("🔧 Test Close.com API Connection", help="Click to test the API and see available fields"):
+            with st.expander("API Connection Test Results", expanded=True):
+                test_result = test_close_api_connection()
+                st.json(test_result)
+        
         progress_bar = st.progress(0)
         status_placeholder = st.empty()
         
@@ -187,7 +214,7 @@ def process_lead_counts(df):
             lead_data = query_close_leads_by_apn(apn)
             
             # Store debug info for first few properties
-            if i < 3:  # Debug first 3 properties
+            if i < 5:  # Debug first 5 properties instead of 3
                 debug_details.append({
                     "property": property_name,
                     "apn": apn,
@@ -223,10 +250,18 @@ def process_lead_counts(df):
         
         # Show debugging information
         if debug_details:
-            st.subheader("🔧 Debugging Information (First 3 Properties)")
+            st.subheader("🔧 Debugging Information (First 5 Properties)")
             for detail in debug_details:
                 with st.expander(f"Debug: {detail['property']} (APN: {detail['apn']})"):
                     st.json(detail['query_result'])
+        
+        # Show sample APN values for debugging
+        st.subheader("📋 Sample APN Values from CSV")
+        sample_apns = df.loc[apn_rows[:10], 'custom.All_APN'].tolist()
+        st.write("First 10 APNs from your data:")
+        for i, apn in enumerate(sample_apns, 1):
+            st.write(f"{i}. `{apn}` (type: {type(apn)}, length: {len(str(apn))})")
+            
     else:
         st.info("ℹ️ No properties with APN values found to query.")
         df['lead_count'] = 0
