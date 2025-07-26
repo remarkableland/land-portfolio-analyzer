@@ -83,7 +83,8 @@ def process_data(df):
     # Financial calculations
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.Asset_Cost_Basis']):
         processed_df['current_margin'] = processed_df['primary_opportunity_value'] - processed_df['custom.Asset_Cost_Basis']
-        processed_df['current_margin_pct'] = (processed_df['current_margin'] / processed_df['custom.Asset_Cost_Basis'] * 100)
+        # CORRECTED: Margin % = (Current Price - Cost Basis) / Current Price × 100
+        processed_df['current_margin_pct'] = (processed_df['current_margin'] / processed_df['primary_opportunity_value'] * 100)
     
     # Price per acre
     if all(col in processed_df.columns for col in ['primary_opportunity_value', 'custom.All_Asset_Surveyed_Acres']):
