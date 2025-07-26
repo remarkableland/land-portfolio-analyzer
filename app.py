@@ -379,15 +379,15 @@ def display_detailed_tables(df):
                 lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
             )
         
-        # Color-code the Status column with emojis and formatting
+        # Color-code the Status column with your preferred emojis
         if 'primary_opportunity_status_label' in display_df.columns:
             def format_status(status):
                 if status == 'Purchased':
-                    return f'✅ {status}'     # Green checkmark
+                    return f'🔴 {status}'     # Red circle
                 elif status == 'Listed':
                     return f'🔵 {status}'     # Blue circle
                 elif status == 'Under Contract':
-                    return f'🟠 {status}'     # Orange circle
+                    return f'🟢 {status}'     # Green circle
                 else:
                     return status
             
