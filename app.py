@@ -29,7 +29,7 @@ CLOSE_API_BASE = "https://api.close.com/api/v1"
 def query_close_leads_by_apn(apn):
     """Query Close.com for leads matching specific APN"""
     if pd.isna(apn) or apn == '' or str(apn).strip() == '':
-        return {"count": 0, "status": "No APN"}
+        return {"count": 0, "status": "No APN", "debug": "Empty APN"}
     
     try:
         headers = {
@@ -59,6 +59,20 @@ def query_close_leads_by_apn(apn):
         # Get all matching leads
         leads = data.get("data", [])
         
+        # DEBUG: Show what we found
+        debug_info = {
+            "query_used": query,
+            "total_leads_found": len(leads),
+            "response_has_data": "data" in data,
+            "api_response_keys": list(data.keys()) if isinstance(data, dict) else "Not a dict"
+        }
+        
+        # If we found leads, let's see their structure
+        if leads and len(leads) > 0:
+            first_lead = leads[0]
+            debug_info["first_lead_keys"] = list(first_lead.keys()) if isinstance(first_lead, dict) else "Not a dict"
+            debug_info["first_lead_status"] = first_lead.get("status_label", "NO STATUS FIELD")
+        
         # Filter OUT leads with excluded statuses
         excluded_statuses = ["Remarkable Asset", "Remarkable Sold", "Neighbor"]
         filtered_leads = []
@@ -72,13 +86,14 @@ def query_close_leads_by_apn(apn):
             "count": len(filtered_leads),
             "status": "Success",
             "total_leads": len(leads),
-            "filtered_leads": len(filtered_leads)
+            "filtered_leads": len(filtered_leads),
+            "debug": debug_info
         }
         
     except requests.exceptions.RequestException as e:
-        return {"count": 0, "status": f"API Error: {str(e)[:30]}"}
+        return {"count": 0, "status": f"API Error: {str(e)[:30]}", "debug": f"Request failed: {str(e)}"}
     except Exception as e:
-        return {"count": 0, "status": f"Error: {str(e)[:30]}"}
+        return {"count": 0, "status": f"Error: {str(e)[:30]}", "debug": f"General error: {str(e)}"}
 
 def process_lead_counts(df):
     """Add lead count data from Close.com to the dataframe"""
@@ -100,6 +115,7 @@ def process_lead_counts(df):
         
         success_count = 0
         total_leads_found = 0
+        debug_details = []
         
         for i, idx in enumerate(apn_rows):
             apn = df.loc[idx, 'custom.All_APN']
@@ -112,6 +128,14 @@ def process_lead_counts(df):
             
             # Query Close.com
             lead_data = query_close_leads_by_apn(apn)
+            
+            # Store debug info for first few properties
+            if i < 3:  # Debug first 3 properties
+                debug_details.append({
+                    "property": property_name,
+                    "apn": apn,
+                    "query_result": lead_data
+                })
             
             # Update dataframe
             df.loc[idx, 'lead_count'] = lead_data['count']
@@ -139,6 +163,13 @@ def process_lead_counts(df):
         
         if success_count < len(apn_rows):
             st.warning(f"⚠️ {len(apn_rows) - success_count} properties had API query issues.")
+        
+        # Show debugging information
+        if debug_details:
+            st.subheader("🔧 Debugging Information (First 3 Properties)")
+            for detail in debug_details:
+                with st.expander(f"Debug: {detail['property']} (APN: {detail['apn']})"):
+                    st.json(detail['query_result'])
     else:
         st.info("ℹ️ No properties with APN values found to query.")
         df['lead_count'] = 0
