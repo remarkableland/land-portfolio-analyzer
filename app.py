@@ -577,15 +577,15 @@ def display_detailed_tables(df):
                 lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
             )
         
-        # Color-code the Status column with CSS classes and emojis
+        # Color-code the Status column with emojis (Streamlit dataframes don't support HTML)
         if 'primary_opportunity_status_label' in display_df.columns:
             def format_status(status):
                 if status == 'Purchased':
-                    return f'<span class="status-purchased">🔴 {status}</span>'
+                    return f'🔴 {status}'     # Red circle
                 elif status == 'Listed':
-                    return f'<span class="status-listed">🔵 {status}</span>'
+                    return f'🔵 {status}'     # Blue circle
                 elif status == 'Under Contract':
-                    return f'<span class="status-contract">🟢 {status}</span>'
+                    return f'🟢 {status}'     # Green circle
                 else:
                     return status
             
@@ -613,10 +613,9 @@ def display_detailed_tables(df):
             'missing_information': 'Missing Information'
         })
         
-        # Display table with custom CSS for column alignment AND status colors
+        # Display table with custom CSS for column alignment
         st.markdown("""
         <style>
-        /* Column alignment */
         .dataframe th:nth-child(1), .dataframe td:nth-child(1) { text-align: left !important; }    /* Property Name */
         .dataframe th:nth-child(2), .dataframe td:nth-child(2) { text-align: left !important; }    /* Status */
         .dataframe th:nth-child(3), .dataframe td:nth-child(3) { text-align: left !important; }    /* State */
@@ -634,24 +633,10 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* DOM */
         .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* Price Reductions */
         .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: left !important; }   /* Missing Information */
-        
-        /* Status color coding */
-        .status-purchased {
-            color: #DC143C !important;
-            font-weight: bold !important;
-        }
-        .status-listed {
-            color: #1E90FF !important;
-            font-weight: bold !important;
-        }
-        .status-contract {
-            color: #228B22 !important;
-            font-weight: bold !important;
-        }
         </style>
         """, unsafe_allow_html=True)
         
-        st.dataframe(display_df, use_container_width=True, unsafe_allow_html=True)
+        st.dataframe(display_df, use_container_width=True)
         
         # Add summary of missing information
         if 'missing_information' in filtered_df.columns:
