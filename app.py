@@ -40,38 +40,80 @@ def query_close_leads_by_apn(apn):
         # Clean the APN for the search query
         clean_apn = str(apn).strip()
         
-        # Query Close.com for leads with matching APN
-        query = f'custom.All_APN:"{clean_apn}"'
+        # Handle multiple APNs separated by commas
+        apn_list = [apn.strip() for apn in clean_apn.split(',')]
         
-        response = requests.get(
-            f"{CLOSE_API_BASE}/lead/",
-            headers=headers,
-            params={
-                "query": query,
-                "_limit": 100  # Adjust if you expect more than 100 leads per property
-            },
-            timeout=10
-        )
+        all_leads = []
+        search_attempts = []
         
-        response.raise_for_status()
-        data = response.json()
+        # Try searching for each individual APN
+        for individual_apn in apn_list:
+            if individual_apn:  # Skip empty strings
+                # Try multiple search strategies
+                search_queries = [
+                    f'custom.All_APN:"{individual_apn}"',  # Exact match in quotes
+                    f'custom.All_APN:{individual_apn}',    # Without quotes
+                    f'"{individual_apn}"',                 # Global search with quotes
+                    individual_apn                         # Simple global search
+                ]
+                
+                for query in search_queries:
+                    try:
+                        response = requests.get(
+                            f"{CLOSE_API_BASE}/lead/",
+                            headers=headers,
+                            params={
+                                "query": query,
+                                "_limit": 100
+                            },
+                            timeout=10
+                        )
+                        
+                        response.raise_for_status()
+                        data = response.json()
+                        leads = data.get("data", [])
+                        
+                        search_attempts.append({
+                            "apn": individual_apn,
+                            "query": query,
+                            "leads_found": len(leads),
+                            "http_status": response.status_code
+                        })
+                        
+                        # If we found leads with this query, add them and stop trying other queries for this APN
+                        if leads:
+                            all_leads.extend(leads)
+                            break
+                            
+                    except Exception as search_error:
+                        search_attempts.append({
+                            "apn": individual_apn,
+                            "query": query,
+                            "error": str(search_error)[:50]
+                        })
+                        continue
         
-        # Get all matching leads
-        leads = data.get("data", [])
+        # Remove duplicates (in case same lead matched multiple APNs)
+        unique_leads = []
+        seen_lead_ids = set()
+        for lead in all_leads:
+            lead_id = lead.get('id', '')
+            if lead_id and lead_id not in seen_lead_ids:
+                unique_leads.append(lead)
+                seen_lead_ids.add(lead_id)
         
         # DEBUG: Show what we found
         debug_info = {
-            "query_used": query,
-            "total_leads_found": len(leads),
-            "response_has_data": "data" in data,
-            "api_response_keys": list(data.keys()) if isinstance(data, dict) else "Not a dict",
-            "http_status": response.status_code,
-            "response_size": len(str(data))
+            "original_apn": clean_apn,
+            "apn_list": apn_list,
+            "search_attempts": search_attempts,
+            "total_leads_found": len(unique_leads),
+            "unique_lead_ids": len(seen_lead_ids)
         }
         
         # If we found leads, let's see their structure
-        if leads and len(leads) > 0:
-            first_lead = leads[0]
+        if unique_leads and len(unique_leads) > 0:
+            first_lead = unique_leads[0]
             debug_info["first_lead_keys"] = list(first_lead.keys()) if isinstance(first_lead, dict) else "Not a dict"
             debug_info["first_lead_status"] = first_lead.get("status_label", "NO STATUS FIELD")
             # Check if the lead actually has the APN field
@@ -82,15 +124,17 @@ def query_close_leads_by_apn(apn):
         excluded_statuses = ["Remarkable Asset", "Remarkable Sold", "Neighbor"]
         filtered_leads = []
         
-        for lead in leads:
+        for lead in unique_leads:
             lead_status = lead.get("status_label", "")
             if lead_status not in excluded_statuses:
                 filtered_leads.append(lead)
         
+        status = "Success" if len(search_attempts) > 0 else "No searches attempted"
+        
         return {
             "count": len(filtered_leads),
-            "status": "Success",
-            "total_leads": len(leads),
+            "status": status,
+            "total_leads": len(unique_leads),
             "filtered_leads": len(filtered_leads),
             "debug": debug_info
         }
@@ -102,7 +146,7 @@ def query_close_leads_by_apn(apn):
             "debug": {
                 "error_type": "RequestException",
                 "error_message": str(e),
-                "query_attempted": f'custom.All_APN:"{clean_apn}"'
+                "original_apn": str(apn)
             }
         }
     except Exception as e:
@@ -112,7 +156,7 @@ def query_close_leads_by_apn(apn):
             "debug": {
                 "error_type": "General Exception",
                 "error_message": str(e),
-                "query_attempted": f'custom.All_APN:"{clean_apn}"'
+                "original_apn": str(apn)
             }
         }
 
