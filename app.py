@@ -4,6 +4,8 @@ import numpy as np
 import plotly.express as px
 from datetime import datetime
 from io import BytesIO
+import requests
+import time
 try:
     from reportlab.lib.pagesizes import letter, A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
@@ -14,7 +16,129 @@ try:
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-st.set_page_config(
+# Close.com API Configuration
+CLOSE_API_KEY = "api_74RFzgOQpU0hdtf3tHZyWK.4OlJ6xHkGeq8ez1ZkJApdP"
+CLOSE_API_BASE = "https://api.close.com/api/v1"
+
+def query_close_leads_by_apn(apn):
+    """Query Close.com for leads matching specific APN"""
+    if pd.isna(apn) or apn == '' or str(apn).strip() == '':
+        return {"count": 0, "status": "No APN"}
+    
+    try:
+        headers = {
+            "Authorization": f"Bearer {CLOSE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        # Clean the APN for the search query
+        clean_apn = str(apn).strip()
+        
+        # Query Close.com for leads with matching APN
+        query = f'custom.All_APN:"{clean_apn}"'
+        
+        response = requests.get(
+            f"{CLOSE_API_BASE}/lead/",
+            headers=headers,
+            params={
+                "query": query,
+                "_limit": 100  # Adjust if you expect more than 100 leads per property
+            },
+            timeout=10
+        )
+        
+        response.raise_for_status()
+        data = response.json()
+        
+        # Get all matching leads
+        leads = data.get("data", [])
+        
+        # Filter OUT leads with excluded statuses
+        excluded_statuses = ["Remarkable Asset", "Remarkable Sold", "Neighbor"]
+        filtered_leads = []
+        
+        for lead in leads:
+            lead_status = lead.get("status_label", "")
+            if lead_status not in excluded_statuses:
+                filtered_leads.append(lead)
+        
+        return {
+            "count": len(filtered_leads),
+            "status": "Success",
+            "total_leads": len(leads),
+            "filtered_leads": len(filtered_leads)
+        }
+        
+    except requests.exceptions.RequestException as e:
+        return {"count": 0, "status": f"API Error: {str(e)[:30]}"}
+    except Exception as e:
+        return {"count": 0, "status": f"Error: {str(e)[:30]}"}
+
+def process_lead_counts(df):
+    """Add lead count data from Close.com to the dataframe"""
+    # Initialize lead count column
+    df['lead_count'] = 0
+    df['lead_query_status'] = "Not processed"
+    
+    # Only process rows that have APN values
+    apn_rows = df[df['custom.All_APN'].notna() & 
+                  (df['custom.All_APN'] != '') & 
+                  (df['custom.All_APN'].astype(str).str.strip() != '')].index
+    
+    if len(apn_rows) > 0:
+        st.info(f"🔍 Querying Close.com for lead data on {len(apn_rows)} properties...")
+        st.info("📊 Filtering out statuses: 'Remarkable Asset', 'Remarkable Sold', 'Neighbor'")
+        
+        progress_bar = st.progress(0)
+        status_placeholder = st.empty()
+        
+        success_count = 0
+        total_leads_found = 0
+        
+        for i, idx in enumerate(apn_rows):
+            apn = df.loc[idx, 'custom.All_APN']
+            property_name = df.loc[idx, 'display_name'] if 'display_name' in df.columns else f"Property {idx}"
+            
+            # Update progress
+            progress = (i + 1) / len(apn_rows)
+            progress_bar.progress(progress)
+            status_placeholder.text(f"Processing {property_name[:30]}... ({i+1}/{len(apn_rows)})")
+            
+            # Query Close.com
+            lead_data = query_close_leads_by_apn(apn)
+            
+            # Update dataframe
+            df.loc[idx, 'lead_count'] = lead_data['count']
+            df.loc[idx, 'lead_query_status'] = lead_data['status']
+            
+            if lead_data['status'] == 'Success':
+                success_count += 1
+                total_leads_found += lead_data['count']
+            
+            # Add small delay to be respectful to the API
+            time.sleep(0.1)
+        
+        progress_bar.empty()
+        status_placeholder.empty()
+        
+        # Show summary
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Properties Queried", f"{success_count}/{len(apn_rows)}")
+        with col2:
+            st.metric("Total Qualified Leads", total_leads_found)
+        with col3:
+            avg_leads = total_leads_found / len(apn_rows) if len(apn_rows) > 0 else 0
+            st.metric("Avg Leads/Property", f"{avg_leads:.1f}")
+        
+        if success_count < len(apn_rows):
+            st.warning(f"⚠️ {len(apn_rows) - success_count} properties had API query issues.")
+    else:
+        st.info("ℹ️ No properties with APN values found to query.")
+        df['lead_count'] = 0
+        df['lead_query_status'] = "No APN"
+    
+    return df
     page_title="Land Portfolio Analyzer",
     page_icon="🏞️",
     layout="wide"
@@ -174,6 +298,9 @@ def process_data(df):
         
         # Check missing information for each property
         processed_df['missing_information'] = processed_df.apply(check_missing_information, axis=1)
+        
+        # Process Close.com lead counts
+        processed_df = process_lead_counts(processed_df)
         
         return processed_df
         
@@ -574,7 +701,7 @@ def display_detailed_tables(df):
     
     st.subheader(f"Showing {len(filtered_df)} properties")
     
-    # Select key columns for display
+    # Select key columns for display - Lead Count added between Acres and Current Asking Price
     desired_columns = [
         'display_name',                         # Property Name (Left)
         'primary_opportunity_status_label',     # Status (Left)
@@ -582,6 +709,7 @@ def display_detailed_tables(df):
         'custom.All_County',                    # County (Left)
         'custom.All_APN',                       # APN (Left)
         'custom.All_Asset_Surveyed_Acres',      # Acres (Right)
+        'lead_count',                           # Lead Count (Center) - NEW POSITION
         'primary_opportunity_value',            # Current Asking Price (Right)
         'custom.Asset_Cost_Basis',              # Cost Basis (Right)
         'current_margin',                       # Profit Margin (Right)
@@ -695,6 +823,7 @@ def display_detailed_tables(df):
             'custom.All_County': 'County',
             'custom.All_APN': 'APN',
             'custom.All_Asset_Surveyed_Acres': 'Acres',
+            'lead_count': 'Lead Count',
             'primary_opportunity_value': 'Current Asking Price',
             'custom.Asset_Cost_Basis': 'Cost Basis',
             'current_margin': 'Profit Margin',
@@ -719,19 +848,20 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(4), .dataframe td:nth-child(4) { text-align: left !important; }    /* County */
         .dataframe th:nth-child(5), .dataframe td:nth-child(5) { text-align: left !important; }    /* APN */
         .dataframe th:nth-child(6), .dataframe td:nth-child(6) { text-align: right !important; }   /* Acres */
-        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: right !important; }   /* Current Asking Price */
-        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Cost Basis */
-        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: right !important; }   /* Profit Margin */
-        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: center !important; } /* Margin */
-        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: center !important; } /* Markup */
-        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: right !important; }  /* Asking Price/Acre */
-        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Cost Basis/Acre */
-        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: right !important; }  /* Original Listing Price */
-        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* %OLP */
-        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* DOM */
-        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
-        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Map Audit */
-        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
+        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: center !important; }  /* Lead Count */
+        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Current Asking Price */
+        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: right !important; }   /* Cost Basis */
+        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: right !important; }  /* Profit Margin */
+        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: center !important; } /* Margin */
+        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: center !important; } /* Markup */
+        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Asking Price/Acre */
+        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: right !important; }  /* Cost Basis/Acre */
+        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: right !important; }  /* Original Listing Price */
+        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* %OLP */
+        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* DOM */
+        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Price Reductions */
+        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: center !important; } /* Last Map Audit */
+        .dataframe th:nth-child(20), .dataframe td:nth-child(20) { text-align: left !important; }   /* Missing Information */
         </style>
         """, unsafe_allow_html=True)
         
