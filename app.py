@@ -317,6 +317,8 @@ def process_data(df):
         basic_df['cost_basis_per_acre'] = 0
         basic_df['percent_of_initial_listing'] = 0
         basic_df['missing_information'] = "Error processing"
+        basic_df['lead_count'] = 0
+        basic_df['lead_query_status'] = "Error"
         return basic_df
 
 def display_hierarchy_breakdown(df):
