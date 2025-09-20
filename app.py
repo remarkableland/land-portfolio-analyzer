@@ -430,8 +430,16 @@ def generate_missing_fields_checklist_pdf(df):
         buffer.seek(0)
         return buffer
     
-    # Sort by State, then County, then Property Name
+    # Sort by Status first, then State, then County, then Property Name
     sort_columns = []
+    
+    # Add status sorting with custom order
+    if 'primary_opportunity_status_label' in incomplete_properties.columns:
+        # Create a status order mapping for sorting
+        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3}
+        incomplete_properties['_status_sort'] = incomplete_properties['primary_opportunity_status_label'].map(status_order_map).fillna(999)
+        sort_columns.append('_status_sort')
+    
     if 'custom.All_State' in incomplete_properties.columns:
         sort_columns.append('custom.All_State')
     if 'custom.All_County' in incomplete_properties.columns:
@@ -441,16 +449,41 @@ def generate_missing_fields_checklist_pdf(df):
     
     if sort_columns:
         incomplete_properties = incomplete_properties.sort_values(sort_columns)
+        
+        # Remove the temporary sort column
+        if '_status_sort' in incomplete_properties.columns:
+            incomplete_properties = incomplete_properties.drop('_status_sort', axis=1)
     
-    # Group by State and County for ultra-compact layout
+    # Group by Status, State and County for ultra-compact layout
+    current_status = None
     current_state = None
     current_county = None
     
     for _, row in incomplete_properties.iterrows():
+        status = row.get('primary_opportunity_status_label', 'Unknown Status')
         state = row.get('custom.All_State', 'Unknown State')
         county = row.get('custom.All_County', 'Unknown County')
         property_name = row.get('display_name', 'Unknown Property')
         missing_info = row.get('missing_information', '')
+        
+        # Add status header if changed (new top-level grouping)
+        if status != current_status:
+            current_status = status
+            story.append(Spacer(1, 8))  # Slightly more spacing for status changes
+            
+            # Format status with color coding
+            if status == 'Purchased':
+                status_display = f"🔴 {status.upper()}"
+            elif status == 'Listed':
+                status_display = f"🔵 {status.upper()}"
+            elif status == 'Under Contract':
+                status_display = f"🟢 {status.upper()}"
+            else:
+                status_display = status.upper()
+                
+            story.append(Paragraph(f"STATUS: {status_display}", title_style))
+            current_state = None  # Reset state when status changes
+            current_county = None  # Reset county when status changes
         
         # Add state header if changed (ultra compact)
         if state != current_state:
