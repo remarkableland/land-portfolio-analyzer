@@ -632,20 +632,41 @@ def display_detailed_tables(df):
         
         display_df = filtered_df[display_columns].copy()
         
-        # Create Property Name with Link column
+        # Create Property Name with Link column - simpler approach
         if 'display_name' in display_df.columns and 'id' in display_df.columns:
-            def create_property_link(row):
+            def create_property_with_link(row):
                 property_name = row['display_name'] if pd.notna(row['display_name']) else "Unknown Property"
                 property_id = row['id'] if pd.notna(row['id']) else ""
                 if property_id:
-                    link_url = f"https://app.close.com/lead/{property_id}"
-                    return f"{property_name} [Link]({link_url})"
+                    return f"{property_name} [🔗]"
                 else:
                     return property_name
             
-            display_df['Property Name with Link'] = display_df.apply(create_property_link, axis=1)
-            # Remove the separate display_name and id columns since we've combined them
+            def create_link_url(row):
+                property_id = row['id'] if pd.notna(row['id']) else ""
+                if property_id:
+                    return f"https://app.close.com/lead/{property_id}"
+                else:
+                    return ""
+            
+            # Create the modified property name and separate link columns
+            display_df['Property Name'] = display_df.apply(create_property_with_link, axis=1)
+            display_df['Close.com Link'] = display_df.apply(create_link_url, axis=1)
+            
+            # Remove the original columns
             display_df = display_df.drop(['display_name', 'id'], axis=1)
+            
+            # Reorder columns to put Property Name and Link first
+            cols = list(display_df.columns)
+            # Remove these columns from their current positions
+            if 'Property Name' in cols:
+                cols.remove('Property Name')
+            if 'Close.com Link' in cols:
+                cols.remove('Close.com Link')
+            # Insert them at the beginning
+            cols.insert(0, 'Close.com Link')
+            cols.insert(0, 'Property Name')
+            display_df = display_df[cols]
         
         # Format currency columns
         currency_columns = ['custom.Asset_Original_Listing_Price', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'cost_basis_per_acre', 'current_margin', 'price_per_acre']
@@ -712,9 +733,8 @@ def display_detailed_tables(df):
             
             display_df['primary_opportunity_status_label'] = display_df['primary_opportunity_status_label'].apply(format_status)
         
-        # Rename columns for display - REMOVED Lead Count
+        # Rename columns for display - Property Name and Close.com Link are already named correctly
         display_df = display_df.rename(columns={
-            'Property Name with Link': 'Property Name',
             'primary_opportunity_status_label': 'Status',
             'custom.All_State': 'State',
             'custom.All_County': 'County',
@@ -760,7 +780,13 @@ def display_detailed_tables(df):
         </style>
         """, unsafe_allow_html=True)
         
-        st.dataframe(display_df, use_container_width=True)
+        st.dataframe(display_df, use_container_width=True, column_config={
+            "Close.com Link": st.column_config.LinkColumn(
+                "Close.com Link",
+                help="Click to open property in Close.com",
+                display_text="🔗 Open"
+            )
+        })
         
         # Add summary of missing information
         if 'missing_information' in filtered_df.columns:
