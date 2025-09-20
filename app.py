@@ -49,6 +49,8 @@ def check_missing_information(row):
         'custom.Asset_MLS_Listing_Date': 'MLS Listing Date',
         'custom.Asset_Street_Address': 'Street Address',
         'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
+        'custom.Asset_Owner': 'Owner',
+        'custom.Asset_Listing_Type': 'Listing Type',
         'avg_one_time_active_opportunity_value': 'Avg One Time Active Opportunity Value'
     }
     
@@ -409,6 +411,8 @@ def generate_missing_fields_checklist_pdf(df):
         'custom.Asset_MLS_Listing_Date': 'MLS Listing Date',
         'custom.Asset_Street_Address': 'Street Address',
         'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
+        'custom.Asset_Owner': 'Owner',
+        'custom.Asset_Listing_Type': 'Listing Type',
         'avg_one_time_active_opportunity_value': 'Avg One Time Active Opportunity Value'
     }
     
@@ -842,6 +846,8 @@ def main():
         - **MLS Listing Date** (custom.Asset_MLS_Listing_Date)
         - **Last Map Audit** (custom.Asset_Last_Mapping_Audit)
         - **Street Address** (custom.Asset_Street_Address)
+        - **Owner** (custom.Asset_Owner)
+        - **Listing Type** (custom.Asset_Listing_Type)
         - **Avg One Time Active Opportunity Value** (avg_one_time_active_opportunity_value)
         
         **Note**: To use PDF generation, install reportlab: `pip install reportlab`
