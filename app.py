@@ -586,6 +586,7 @@ def display_detailed_tables(df):
     # Select key columns for display - REMOVED Lead Count
     desired_columns = [
         'display_name',                         # Property Name (Left)
+        'id',                                   # ID for creating links
         'primary_opportunity_status_label',     # Status (Left)
         'custom.All_State',                     # State (Left)
         'custom.All_County',                    # County (Left)
@@ -630,6 +631,21 @@ def display_detailed_tables(df):
                 display_columns.append('cost_basis_per_acre')
         
         display_df = filtered_df[display_columns].copy()
+        
+        # Create Property Name with Link column
+        if 'display_name' in display_df.columns and 'id' in display_df.columns:
+            def create_property_link(row):
+                property_name = row['display_name'] if pd.notna(row['display_name']) else "Unknown Property"
+                property_id = row['id'] if pd.notna(row['id']) else ""
+                if property_id:
+                    link_url = f"https://app.close.com/lead/{property_id}"
+                    return f"{property_name} [Link]({link_url})"
+                else:
+                    return property_name
+            
+            display_df['Property Name with Link'] = display_df.apply(create_property_link, axis=1)
+            # Remove the separate display_name and id columns since we've combined them
+            display_df = display_df.drop(['display_name', 'id'], axis=1)
         
         # Format currency columns
         currency_columns = ['custom.Asset_Original_Listing_Price', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'cost_basis_per_acre', 'current_margin', 'price_per_acre']
@@ -698,7 +714,7 @@ def display_detailed_tables(df):
         
         # Rename columns for display - REMOVED Lead Count
         display_df = display_df.rename(columns={
-            'display_name': 'Property Name',
+            'Property Name with Link': 'Property Name',
             'primary_opportunity_status_label': 'Status',
             'custom.All_State': 'State',
             'custom.All_County': 'County',
