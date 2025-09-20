@@ -59,8 +59,13 @@ def check_missing_information(row):
     for field_key, field_name in required_fields.items():
         if field_key in row.index:
             value = row[field_key]
-            if pd.isna(value) or value == '' or value == 'Unknown' or value == 'Unknown County':
-                missing_fields.append(field_name)
+            # Special handling for Cost Basis - treat 0 as missing
+            if field_key == 'custom.Asset_Cost_Basis':
+                if pd.isna(value) or value == '' or value == 0:
+                    missing_fields.append(field_name)
+            else:
+                if pd.isna(value) or value == '' or value == 'Unknown' or value == 'Unknown County':
+                    missing_fields.append(field_name)
         else:
             missing_fields.append(field_name)
     
@@ -807,22 +812,88 @@ def main():
             # Process the data
             processed_df = process_data(df)
             
+            # Owner filtering section
+            st.subheader("📋 Owner Filtering")
+            st.markdown("Select which owners to include in the analysis:")
+            
+            if 'custom.Asset_Owner' in processed_df.columns:
+                # Get unique owners, excluding NaN values
+                all_owners = processed_df['custom.Asset_Owner'].dropna().unique()
+                all_owners = sorted([owner for owner in all_owners if str(owner) != 'nan'])
+                
+                if len(all_owners) > 0:
+                    # Create columns for checkboxes (3 per row for better layout)
+                    cols_per_row = 3
+                    rows_needed = (len(all_owners) + cols_per_row - 1) // cols_per_row
+                    
+                    # Add "Select All" and "Deselect All" buttons
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        if st.button("✅ Select All Owners"):
+                            for owner in all_owners:
+                                st.session_state[f"owner_{owner}"] = True
+                    with col2:
+                        if st.button("❌ Deselect All Owners"):
+                            for owner in all_owners:
+                                st.session_state[f"owner_{owner}"] = False
+                    
+                    # Initialize session state for owners if not exists
+                    for owner in all_owners:
+                        if f"owner_{owner}" not in st.session_state:
+                            st.session_state[f"owner_{owner}"] = True  # Default to checked
+                    
+                    # Create checkboxes for each owner
+                    for i in range(rows_needed):
+                        cols = st.columns(cols_per_row)
+                        for j in range(cols_per_row):
+                            owner_index = i * cols_per_row + j
+                            if owner_index < len(all_owners):
+                                owner = all_owners[owner_index]
+                                owner_count = len(processed_df[processed_df['custom.Asset_Owner'] == owner])
+                                with cols[j]:
+                                    st.session_state[f"owner_{owner}"] = st.checkbox(
+                                        f"{owner} ({owner_count} properties)",
+                                        value=st.session_state[f"owner_{owner}"],
+                                        key=f"checkbox_owner_{owner}"
+                                    )
+                    
+                    # Filter data based on selected owners
+                    selected_owners = [owner for owner in all_owners if st.session_state.get(f"owner_{owner}", True)]
+                    
+                    if selected_owners:
+                        # Filter the dataframe to only include selected owners
+                        filtered_df = processed_df[processed_df['custom.Asset_Owner'].isin(selected_owners)]
+                        
+                        st.info(f"📊 Showing data for {len(selected_owners)} selected owner(s): {', '.join(selected_owners)}")
+                        st.info(f"🏠 Total properties in filtered view: {len(filtered_df)} of {len(processed_df)}")
+                    else:
+                        st.warning("⚠️ No owners selected. Please select at least one owner to view data.")
+                        st.stop()
+                else:
+                    st.warning("⚠️ No owner data found in the uploaded file.")
+                    filtered_df = processed_df
+            else:
+                st.warning("⚠️ Owner column (custom.Asset_Owner) not found in uploaded file.")
+                filtered_df = processed_df
+            
+            st.divider()
+            
             # Main hierarchy analysis
-            display_hierarchy_breakdown(processed_df)
+            display_hierarchy_breakdown(filtered_df)
             
             st.divider()
             
             # Visualizations
-            create_visualizations(processed_df)
+            create_visualizations(filtered_df)
             
             st.divider()
             
             # Detailed tables with filtering
-            display_detailed_tables(processed_df)
+            display_detailed_tables(filtered_df)
             
             # Raw data preview
             with st.expander("🔍 Raw Data Preview"):
-                st.dataframe(processed_df.head(10), use_container_width=True)
+                st.dataframe(filtered_df.head(10), use_container_width=True)
                 
         except Exception as e:
             st.error(f"Error processing file: {str(e)}")
@@ -837,7 +908,7 @@ def main():
         - **County** (custom.All_County)
         - **RemarkableLand URL** (custom.All_RemarkableLand_URL)
         - **State** (custom.All_State)
-        - **Cost Basis** (custom.Asset_Cost_Basis)
+        - **Cost Basis** (custom.Asset_Cost_Basis) - *Note: Values of $0 are considered missing*
         - **Date Purchased** (custom.Asset_Date_Purchased)
         - **Original Listing Price** (custom.Asset_Original_Listing_Price)
         - **Land ID Internal URL** (custom.Asset_Land_ID_Internal_URL)
