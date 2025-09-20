@@ -634,13 +634,9 @@ def display_detailed_tables(df):
         
         # Create Property Name with Link column - simpler approach
         if 'display_name' in display_df.columns and 'id' in display_df.columns:
-            def create_property_with_link(row):
+            def create_property_name(row):
                 property_name = row['display_name'] if pd.notna(row['display_name']) else "Unknown Property"
-                property_id = row['id'] if pd.notna(row['id']) else ""
-                if property_id:
-                    return f"{property_name} [🔗]"
-                else:
-                    return property_name
+                return property_name
             
             def create_link_url(row):
                 property_id = row['id'] if pd.notna(row['id']) else ""
@@ -649,8 +645,8 @@ def display_detailed_tables(df):
                 else:
                     return ""
             
-            # Create the modified property name and separate link columns
-            display_df['Property Name'] = display_df.apply(create_property_with_link, axis=1)
+            # Create the clean property name and separate link columns
+            display_df['Property Name'] = display_df.apply(create_property_name, axis=1)
             display_df['Close.com Link'] = display_df.apply(create_link_url, axis=1)
             
             # Remove the original columns
