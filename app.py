@@ -336,10 +336,14 @@ def generate_inventory_report_pdf(df):
     # Create a BytesIO buffer for the PDF
     buffer = BytesIO()
     
-    # Create the PDF document with proper margins
-    doc = SimpleDocTemplate(buffer, pagesize=letter, 
-                          topMargin=0.75*inch, bottomMargin=0.75*inch,
-                          leftMargin=0.75*inch, rightMargin=0.75*inch)
+    # Use landscape orientation (legal size)
+    from reportlab.lib.pagesizes import legal, landscape
+    page_size = landscape(legal)  # 14" x 8.5" landscape
+    
+    # Create the PDF document with proper margins for landscape
+    doc = SimpleDocTemplate(buffer, pagesize=page_size, 
+                          topMargin=0.5*inch, bottomMargin=0.5*inch,
+                          leftMargin=0.5*inch, rightMargin=0.5*inch)
     story = []
     
     # Get styles
@@ -403,7 +407,29 @@ def generate_inventory_report_pdf(df):
         # Section header
         story.append(Paragraph(section_name, section_style))
         
-        # Prepare table data
+        # Prepare table data with text wrapping helper function
+        def wrap_text(text, max_length=25):
+            """Helper function to wrap long text"""
+            if pd.isna(text) or text == '':
+                return 'N/A'
+            text_str = str(text)
+            if len(text_str) <= max_length:
+                return text_str
+            # Insert line breaks for long text
+            words = text_str.split()
+            lines = []
+            current_line = ""
+            for word in words:
+                if len(current_line + " " + word) <= max_length:
+                    current_line += (" " + word if current_line else word)
+                else:
+                    if current_line:
+                        lines.append(current_line)
+                    current_line = word
+            if current_line:
+                lines.append(current_line)
+            return "<br/>".join(lines)
+        
         table_data = []
         headers = ['Property Name', 'State', 'County', 'APN', 'Acres', 'Current Asking Price', 'Cost Basis']
         table_data.append(headers)
@@ -412,19 +438,29 @@ def generate_inventory_report_pdf(df):
         section_df = section_df.sort_values(['custom.All_State', 'custom.All_County', 'display_name'])
         
         for _, row in section_df.iterrows():
-            property_name = str(row.get('display_name', 'Unknown Property'))[:40]  # Truncate long names
+            property_name = wrap_text(row.get('display_name', 'Unknown Property'), 30)
             state = str(row.get('custom.All_State', 'N/A'))
-            county = str(row.get('custom.All_County', 'N/A'))
-            apn = str(row.get('custom.All_APN', 'N/A'))
+            county = wrap_text(row.get('custom.All_County', 'N/A'), 15)
+            apn = wrap_text(row.get('custom.All_APN', 'N/A'), 20)
             acres = f"{row.get('custom.All_Asset_Surveyed_Acres', 0):.1f}" if pd.notna(row.get('custom.All_Asset_Surveyed_Acres')) else 'N/A'
             asking_price = f"${row.get('primary_opportunity_value', 0):,.0f}" if pd.notna(row.get('primary_opportunity_value')) and row.get('primary_opportunity_value', 0) > 0 else 'N/A'
             cost_basis = f"${row.get('custom.Asset_Cost_Basis', 0):,.0f}" if pd.notna(row.get('custom.Asset_Cost_Basis')) and row.get('custom.Asset_Cost_Basis', 0) > 0 else 'N/A'
             
-            table_data.append([property_name, state, county, apn, acres, asking_price, cost_basis])
+            # Convert to Paragraph objects for proper text wrapping
+            table_data.append([
+                Paragraph(property_name, styles['Normal']),
+                Paragraph(state, styles['Normal']),
+                Paragraph(county, styles['Normal']),
+                Paragraph(apn, styles['Normal']),
+                Paragraph(acres, styles['Normal']),
+                Paragraph(asking_price, styles['Normal']),
+                Paragraph(cost_basis, styles['Normal'])
+            ])
         
         if len(table_data) > 1:  # Only create table if there's data beyond headers
-            # Create table with appropriate column widths
-            col_widths = [2.2*inch, 0.6*inch, 0.8*inch, 1.0*inch, 0.6*inch, 1.0*inch, 1.0*inch]
+            # Create table with appropriate column widths for landscape legal size
+            # Total width available: ~13 inches
+            col_widths = [3.5*inch, 0.6*inch, 1.2*inch, 1.8*inch, 0.7*inch, 1.2*inch, 1.2*inch]
             table = Table(table_data, colWidths=col_widths, repeatRows=1)
             
             # Table styling to match the sold properties report
@@ -443,12 +479,15 @@ def generate_inventory_report_pdf(df):
                 ('ALIGN', (0, 1), (0, -1), 'LEFT'),    # Property Name - left align
                 ('ALIGN', (1, 1), (4, -1), 'CENTER'),  # State, County, APN, Acres - center
                 ('ALIGN', (5, 1), (-1, -1), 'RIGHT'),  # Prices - right align
-                ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 1), (-1, -1), 'TOP'),   # Top align for wrapped text
                 
                 # Grid lines
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 
                 # Alternating row colors
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+                
+                # Row height for text wrapping
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
             ]))
             
@@ -465,7 +504,7 @@ def generate_inventory_report_pdf(df):
             ['', '', 'Total Cost Basis', f'${total_cost:,.0f}']
         ]
         
-        summary_table = Table(summary_data, colWidths=[1.5*inch, 1*inch, 1.5*inch, 1*inch])
+        summary_table = Table(summary_data, colWidths=[1.5*inch, 1*inch, 1.5*inch, 1.5*inch])
         summary_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -490,7 +529,7 @@ def generate_inventory_report_pdf(df):
         [f'{total_properties}', f'${total_asking_all:,.0f}', f'${total_cost_all:,.0f}']
     ]
     
-    overall_table = Table(overall_data, colWidths=[2*inch, 2*inch, 2*inch])
+    overall_table = Table(overall_data, colWidths=[2.5*inch, 2.5*inch, 2.5*inch])
     overall_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
