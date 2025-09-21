@@ -369,7 +369,7 @@ def generate_inventory_report_pdf(df):
     page_size = landscape(A3)  # 16.5" x 11.7" landscape
     
     # Create the PDF document with minimal margins
-    doc = SimpleDocDocument(buffer, pagesize=page_size, 
+    doc = SimpleDocTemplate(buffer, pagesize=page_size, 
                           topMargin=0.3*inch, bottomMargin=0.3*inch,
                           leftMargin=0.3*inch, rightMargin=0.3*inch)
     story = []
