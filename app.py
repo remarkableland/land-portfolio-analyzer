@@ -327,8 +327,36 @@ def create_visualizations(df):
                         color_continuous_scale='viridis')
             st.plotly_chart(fig, use_container_width=True)
 
+def wrap_text_smart(text, max_length=30):
+    """Smart text wrapping that preserves readability"""
+    if pd.isna(text) or text == '':
+        return 'N/A'
+    
+    text_str = str(text)
+    if len(text_str) <= max_length:
+        return text_str
+    
+    # For property names, try to break at natural points
+    words = text_str.split()
+    lines = []
+    current_line = ""
+    
+    for word in words:
+        test_line = current_line + (" " + word if current_line else word)
+        if len(test_line) <= max_length:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word
+    
+    if current_line:
+        lines.append(current_line)
+    
+    return "<br/>".join(lines)
+
 def generate_inventory_report_pdf(df):
-    """Generate a comprehensive PDF inventory report with updated columns"""
+    """Generate a comprehensive PDF inventory report with improved formatting"""
     if not REPORTLAB_AVAILABLE:
         st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
         return None
@@ -336,47 +364,47 @@ def generate_inventory_report_pdf(df):
     # Create a BytesIO buffer for the PDF
     buffer = BytesIO()
     
-    # Use landscape orientation (legal size)
-    from reportlab.lib.pagesizes import legal, landscape
-    page_size = landscape(legal)  # 14" x 8.5" landscape
+    # Use A3 landscape for maximum width
+    from reportlab.lib.pagesizes import A3, landscape
+    page_size = landscape(A3)  # 16.5" x 11.7" landscape
     
-    # Create the PDF document with proper margins for landscape
-    doc = SimpleDocTemplate(buffer, pagesize=page_size, 
-                          topMargin=0.5*inch, bottomMargin=0.5*inch,
-                          leftMargin=0.5*inch, rightMargin=0.5*inch)
+    # Create the PDF document with minimal margins
+    doc = SimpleDocDocument(buffer, pagesize=page_size, 
+                          topMargin=0.3*inch, bottomMargin=0.3*inch,
+                          leftMargin=0.3*inch, rightMargin=0.3*inch)
     story = []
     
     # Get styles
     styles = getSampleStyleSheet()
     
-    # Custom styles matching the sold properties report
+    # Enhanced styles for better readability
     title_style = ParagraphStyle(
         'ReportTitle',
         parent=styles['Title'],
-        fontSize=16,
+        fontSize=18,
         fontName='Helvetica-Bold',
         textColor=colors.darkblue,
-        spaceAfter=12,
+        spaceAfter=16,
         alignment=1  # Center alignment
     )
     
     subtitle_style = ParagraphStyle(
         'ReportSubtitle',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=11,
         fontName='Helvetica',
-        spaceAfter=20,
+        spaceAfter=24,
         alignment=1  # Center alignment
     )
     
     section_style = ParagraphStyle(
         'SectionHeader',
         parent=styles['Heading2'],
-        fontSize=14,
+        fontSize=16,
         fontName='Helvetica-Bold',
         textColor=colors.darkblue,
-        spaceAfter=8,
-        spaceBefore=16
+        spaceAfter=10,
+        spaceBefore=20
     )
     
     # Title and date
@@ -404,43 +432,28 @@ def generate_inventory_report_pdf(df):
         # Section header
         story.append(Paragraph(section_name, section_style))
         
-        # Prepare table data with text wrapping helper function
-        def wrap_text(text, max_length=25):
-            """Helper function to wrap long text"""
-            if pd.isna(text) or text == '':
-                return 'N/A'
-            text_str = str(text)
-            if len(text_str) <= max_length:
-                return text_str
-            # Insert line breaks for long text
-            words = text_str.split()
-            lines = []
-            current_line = ""
-            for word in words:
-                if len(current_line + " " + word) <= max_length:
-                    current_line += (" " + word if current_line else word)
-                else:
-                    if current_line:
-                        lines.append(current_line)
-                    current_line = word
-            if current_line:
-                lines.append(current_line)
-            return "<br/>".join(lines)
-        
+        # Prepare table data
         table_data = []
-        headers = ['Property Name', 'Owner', 'State', 'County', 'Acres', 'Date Purchased', 'Cost Basis', 
-                  'Current Asking Price', 'Profit Margin', 'Margin', 'Markup', 'Asking Price/Acre', 
-                  'Cost Basis/Acre', 'Original Listing Price', '%OLP', 'DOM']
+        
+        # Improved headers with better spacing
+        headers = [
+            'Property Name', 'Owner', 'State', 'County', 'Acres', 
+            'Date Purchased', 'Cost Basis', 'Current Price', 
+            'Profit Margin', 'Margin %', 'Markup %', 
+            'Price/Acre', 'Cost/Acre', 'Original Price', 
+            '%OLP', 'DOM'
+        ]
         table_data.append(headers)
         
         # Sort by state, then county, then property name
         section_df = section_df.sort_values(['custom.All_State', 'custom.All_County', 'display_name'])
         
         for _, row in section_df.iterrows():
-            property_name = wrap_text(row.get('display_name', 'Unknown Property'), 20)
-            owner = wrap_text(row.get('custom.Asset_Owner', 'N/A'), 15)
+            # Property name with smart wrapping
+            property_name = wrap_text_smart(row.get('display_name', 'Unknown Property'), 25)
+            owner = wrap_text_smart(row.get('custom.Asset_Owner', 'N/A'), 15)
             state = str(row.get('custom.All_State', 'N/A'))
-            county = wrap_text(row.get('custom.All_County', 'N/A'), 12)
+            county = wrap_text_smart(row.get('custom.All_County', 'N/A'), 15)
             acres = f"{row.get('custom.All_Asset_Surveyed_Acres', 0):.1f}" if pd.notna(row.get('custom.All_Asset_Surveyed_Acres')) else 'N/A'
             
             # Format date purchased
@@ -452,6 +465,7 @@ def generate_inventory_report_pdf(df):
                 except:
                     date_purchased = str(row.get('custom.Asset_Date_Purchased'))
             
+            # Format financial data
             cost_basis = f"${row.get('custom.Asset_Cost_Basis', 0):,.0f}" if pd.notna(row.get('custom.Asset_Cost_Basis')) and row.get('custom.Asset_Cost_Basis', 0) > 0 else 'N/A'
             asking_price = f"${row.get('primary_opportunity_value', 0):,.0f}" if pd.notna(row.get('primary_opportunity_value')) and row.get('primary_opportunity_value', 0) > 0 else 'N/A'
             profit_margin = f"${row.get('current_margin', 0):,.0f}" if pd.notna(row.get('current_margin')) else 'N/A'
@@ -463,7 +477,7 @@ def generate_inventory_report_pdf(df):
             percent_olp = f"{row.get('percent_of_initial_listing', 0):.0f}%" if pd.notna(row.get('percent_of_initial_listing')) else 'N/A'
             dom = f"{row.get('days_on_market', 0):.0f}" if pd.notna(row.get('days_on_market')) else 'N/A'
             
-            # Convert to Paragraph objects for proper text wrapping
+            # Create table row with Paragraph objects for proper text wrapping
             table_data.append([
                 Paragraph(property_name, styles['Normal']),
                 Paragraph(owner, styles['Normal']),
@@ -484,86 +498,116 @@ def generate_inventory_report_pdf(df):
             ])
         
         if len(table_data) > 1:  # Only create table if there's data beyond headers
-            # Create table with appropriate column widths for landscape legal size
-            # Total width available: ~13 inches, 16 columns
-            col_widths = [0.9*inch, 0.7*inch, 0.4*inch, 0.7*inch, 0.5*inch, 0.7*inch, 0.7*inch, 
-                         0.8*inch, 0.7*inch, 0.5*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.8*inch, 0.5*inch, 0.4*inch]
+            # Optimized column widths for A3 landscape (~15.9 inches available)
+            col_widths = [
+                1.2*inch,  # Property Name
+                0.8*inch,  # Owner
+                0.5*inch,  # State
+                0.8*inch,  # County
+                0.6*inch,  # Acres
+                0.8*inch,  # Date Purchased
+                0.8*inch,  # Cost Basis
+                0.9*inch,  # Current Price
+                0.8*inch,  # Profit Margin
+                0.6*inch,  # Margin %
+                0.6*inch,  # Markup %
+                0.8*inch,  # Price/Acre
+                0.8*inch,  # Cost/Acre
+                0.9*inch,  # Original Price
+                0.6*inch,  # %OLP
+                0.5*inch   # DOM
+            ]
+            
             table = Table(table_data, colWidths=col_widths, repeatRows=1)
             
-            # Table styling to match the sold properties report
+            # Enhanced table styling
             table.setStyle(TableStyle([
                 # Header row styling
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 7),
+                ('FONTSIZE', (0, 0), (-1, 0), 8),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows styling
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 6),
-                ('ALIGN', (0, 1), (3, -1), 'LEFT'),    # Property Name, Owner, State, County - left align
-                ('ALIGN', (4, 1), (4, -1), 'CENTER'),  # Acres - center
-                ('ALIGN', (5, 1), (5, -1), 'CENTER'),  # Date Purchased - center
-                ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),  # All monetary values and percentages - right align
+                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('ALIGN', (0, 1), (3, -1), 'LEFT'),    # Property Name, Owner, State, County
+                ('ALIGN', (4, 1), (5, -1), 'CENTER'),  # Acres, Date
+                ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),  # All monetary values and percentages
                 ('VALIGN', (0, 1), (-1, -1), 'TOP'),   # Top align for wrapped text
                 
                 # Grid lines
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 
-                # Alternating row colors
+                # Alternating row colors for better readability
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+                
+                # Better padding for readability
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('LEFTPADDING', (0, 0), (-1, -1), 3),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
             ]))
             
             story.append(table)
-            story.append(Spacer(1, 12))
+            story.append(Spacer(1, 16))
         
-        # Add section summary
+        # Enhanced section summary
         section_count = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
+        total_margin = total_asking - total_cost
+        margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
         
         summary_data = [
             ['Properties', f'{section_count}', 'Total Asking Price', f'${total_asking:,.0f}'],
-            ['', '', 'Total Cost Basis', f'${total_cost:,.0f}']
+            ['Total Margin', f'${total_margin:,.0f}', 'Total Cost Basis', f'${total_cost:,.0f}'],
+            ['Portfolio Margin %', f'{margin_pct:.1f}%', '', '']
         ]
         
-        summary_table = Table(summary_data, colWidths=[1.5*inch, 1*inch, 1.5*inch, 1.5*inch])
+        summary_table = Table(summary_data, colWidths=[1.5*inch, 1.2*inch, 1.5*inch, 1.2*inch])
         summary_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 9),
-            ('ALIGN', (0, 0), (1, -1), 'LEFT'),
-            ('ALIGN', (2, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.lightblue),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ]))
         
         story.append(summary_table)
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 24))
     
-    # Overall summary at the end
-    story.append(Paragraph("Overall Summary", section_style))
+    # Enhanced overall summary
+    story.append(Paragraph("Overall Portfolio Summary", section_style))
     
     total_properties = len(df)
     total_asking_all = df['primary_opportunity_value'].sum()
     total_cost_all = df['custom.Asset_Cost_Basis'].sum()
+    total_margin_all = total_asking_all - total_cost_all
+    overall_margin_pct = (total_margin_all / total_asking_all * 100) if total_asking_all > 0 else 0
     
     overall_data = [
-        ['Total Properties', 'Total Asking Price', 'Total Cost Basis'],
-        [f'{total_properties}', f'${total_asking_all:,.0f}', f'${total_cost_all:,.0f}']
+        ['Total Properties', 'Total Asking Price', 'Total Cost Basis', 'Total Margin', 'Portfolio Margin %'],
+        [f'{total_properties}', f'${total_asking_all:,.0f}', f'${total_cost_all:,.0f}', 
+         f'${total_margin_all:,.0f}', f'{overall_margin_pct:.1f}%']
     ]
     
-    overall_table = Table(overall_data, colWidths=[2.5*inch, 2.5*inch, 2.5*inch])
+    overall_table = Table(overall_data, colWidths=[1.8*inch, 2.2*inch, 2.2*inch, 2.0*inch, 1.8*inch])
     overall_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('FONTSIZE', (0, 0), (-1, -1), 11),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
     
     story.append(overall_table)
