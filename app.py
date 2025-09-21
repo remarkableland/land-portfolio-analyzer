@@ -406,6 +406,20 @@ def generate_inventory_report_pdf(df):
         spaceBefore=16
     )
     
+    # Disclaimer style
+    disclaimer_style = ParagraphStyle(
+        'DisclaimerStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        fontName='Helvetica-Oblique',
+        textColor=colors.grey,
+        spaceAfter=8,
+        spaceBefore=16,
+        alignment=1,  # Center alignment
+        leftIndent=20,
+        rightIndent=20
+    )
+    
     # Title and date
     story.append(Paragraph("Remarkable Land LLC - Inventory Report", title_style))
     story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", subtitle_style))
@@ -805,6 +819,10 @@ def generate_inventory_report_pdf(df):
         
         story.append(summary_table)
         story.append(Spacer(1, 28))
+    
+    # Add the disclaimer at the end
+    disclaimer_text = "Disclaimer: This data is sourced from our CRM and not our accounting software, based on then-available data. Final accounting data and results may vary slightly."
+    story.append(Paragraph(disclaimer_text, disclaimer_style))
     
     # Build the PDF
     try:
