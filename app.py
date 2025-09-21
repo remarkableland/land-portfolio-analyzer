@@ -631,8 +631,7 @@ def generate_inventory_report_pdf(df):
         story.append(summary_table)
         story.append(Spacer(1, 28))
     
-    # Add page break before Primary Portfolio Summary
-    story.append(PageBreak())
+    # REMOVED page break before Primary Portfolio Summary
     
     # Enhanced primary portfolio summary (only primary sections)
     story.append(Paragraph("Primary Portfolio Summary", section_style))
@@ -665,10 +664,6 @@ def generate_inventory_report_pdf(df):
     
     story.append(primary_summary_table)
     story.append(Spacer(1, 28))
-    
-    # Add explanatory note before secondary sections using updated style
-    explanatory_note = 'Note: "Listed (Secondary)" are alternative MLS or acreage-size listings for properties included in "Listed (Primary)" above.'
-    story.append(Paragraph(explanatory_note, note_style))
     
     # Add page break before secondary sections
     story.append(PageBreak())
@@ -843,6 +838,10 @@ def generate_inventory_report_pdf(df):
         
         story.append(summary_table)
         story.append(Spacer(1, 28))
+    
+    # Add the explanatory note above the disclaimer using updated style (MOVED HERE)
+    explanatory_note = 'Note: "Listed (Secondary)" are alternative MLS or acreage-size listings for properties included in "Listed (Primary)" above.'
+    story.append(Paragraph(explanatory_note, note_style))
     
     # Add the disclaimer at the end using updated style
     disclaimer_text = "Disclaimer: This data is sourced from our CRM and not our accounting software, based on then-available data. Final accounting data and results may vary slightly."
