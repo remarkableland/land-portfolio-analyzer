@@ -327,6 +327,192 @@ def create_visualizations(df):
                         color_continuous_scale='viridis')
             st.plotly_chart(fig, use_container_width=True)
 
+def generate_inventory_report_pdf(df):
+    """Generate a comprehensive PDF inventory report similar to the sold properties report"""
+    if not REPORTLAB_AVAILABLE:
+        st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
+        return None
+    
+    # Create a BytesIO buffer for the PDF
+    buffer = BytesIO()
+    
+    # Create the PDF document with proper margins
+    doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                          topMargin=0.75*inch, bottomMargin=0.75*inch,
+                          leftMargin=0.75*inch, rightMargin=0.75*inch)
+    story = []
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    
+    # Custom styles matching the sold properties report
+    title_style = ParagraphStyle(
+        'ReportTitle',
+        parent=styles['Title'],
+        fontSize=16,
+        fontName='Helvetica-Bold',
+        textColor=colors.darkblue,
+        spaceAfter=12,
+        alignment=1  # Center alignment
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'ReportSubtitle',
+        parent=styles['Normal'],
+        fontSize=10,
+        fontName='Helvetica',
+        spaceAfter=20,
+        alignment=1  # Center alignment
+    )
+    
+    section_style = ParagraphStyle(
+        'SectionHeader',
+        parent=styles['Heading2'],
+        fontSize=14,
+        fontName='Helvetica-Bold',
+        textColor=colors.white,
+        spaceAfter=8,
+        spaceBefore=16,
+        backColor=colors.darkblue,
+        leftIndent=6,
+        rightIndent=6
+    )
+    
+    # Title and date
+    story.append(Paragraph("Remarkable Land LLC - Inventory Report", title_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", subtitle_style))
+    
+    # Define the sections based on status and listing type
+    sections = [
+        ("Purchased (Primary)", 'Purchased', 'Primary'),
+        ("Listed (Primary)", 'Listed', 'Primary'), 
+        ("Under Contract (Primary)", 'Under Contract', 'Primary'),
+        ("Listed (Secondary)", 'Listed', 'Secondary')
+    ]
+    
+    for section_name, status, listing_type in sections:
+        # Filter data for this section
+        section_df = df[
+            (df['primary_opportunity_status_label'] == status) & 
+            (df['custom.Asset_Listing_Type'] == listing_type)
+        ].copy()
+        
+        if len(section_df) == 0:
+            continue  # Skip empty sections
+        
+        # Section header
+        story.append(Paragraph(section_name, section_style))
+        
+        # Prepare table data
+        table_data = []
+        headers = ['Property Name', 'State', 'County', 'APN', 'Acres', 'Current Asking Price', 'Cost Basis']
+        table_data.append(headers)
+        
+        # Sort by state, then county, then property name
+        section_df = section_df.sort_values(['custom.All_State', 'custom.All_County', 'display_name'])
+        
+        for _, row in section_df.iterrows():
+            property_name = str(row.get('display_name', 'Unknown Property'))[:40]  # Truncate long names
+            state = str(row.get('custom.All_State', 'N/A'))
+            county = str(row.get('custom.All_County', 'N/A'))
+            apn = str(row.get('custom.All_APN', 'N/A'))
+            acres = f"{row.get('custom.All_Asset_Surveyed_Acres', 0):.1f}" if pd.notna(row.get('custom.All_Asset_Surveyed_Acres')) else 'N/A'
+            asking_price = f"${row.get('primary_opportunity_value', 0):,.0f}" if pd.notna(row.get('primary_opportunity_value')) and row.get('primary_opportunity_value', 0) > 0 else 'N/A'
+            cost_basis = f"${row.get('custom.Asset_Cost_Basis', 0):,.0f}" if pd.notna(row.get('custom.Asset_Cost_Basis')) and row.get('custom.Asset_Cost_Basis', 0) > 0 else 'N/A'
+            
+            table_data.append([property_name, state, county, apn, acres, asking_price, cost_basis])
+        
+        if len(table_data) > 1:  # Only create table if there's data beyond headers
+            # Create table with appropriate column widths
+            col_widths = [2.2*inch, 0.6*inch, 0.8*inch, 1.0*inch, 0.6*inch, 1.0*inch, 1.0*inch]
+            table = Table(table_data, colWidths=col_widths, repeatRows=1)
+            
+            # Table styling to match the sold properties report
+            table.setStyle(TableStyle([
+                # Header row styling
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+                
+                # Data rows styling
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('ALIGN', (0, 1), (0, -1), 'LEFT'),    # Property Name - left align
+                ('ALIGN', (1, 1), (4, -1), 'CENTER'),  # State, County, APN, Acres - center
+                ('ALIGN', (5, 1), (-1, -1), 'RIGHT'),  # Prices - right align
+                ('VALIGN', (0, 1), (-1, -1), 'MIDDLE'),
+                
+                # Grid lines
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                
+                # Alternating row colors
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ]))
+            
+            story.append(table)
+            story.append(Spacer(1, 12))
+        
+        # Add section summary
+        section_count = len(section_df)
+        total_asking = section_df['primary_opportunity_value'].sum()
+        total_cost = section_df['custom.Asset_Cost_Basis'].sum()
+        
+        summary_data = [
+            ['Properties', f'{section_count}', 'Total Asking Price', f'${total_asking:,.0f}'],
+            ['', '', 'Total Cost Basis', f'${total_cost:,.0f}']
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[1.5*inch, 1*inch, 1.5*inch, 1*inch])
+        summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('ALIGN', (0, 0), (1, -1), 'LEFT'),
+            ('ALIGN', (2, 0), (-1, -1), 'LEFT'),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.lightblue),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        
+        story.append(summary_table)
+        story.append(Spacer(1, 20))
+    
+    # Overall summary at the end
+    story.append(Paragraph("Overall Summary", section_style))
+    
+    total_properties = len(df)
+    total_asking_all = df['primary_opportunity_value'].sum()
+    total_cost_all = df['custom.Asset_Cost_Basis'].sum()
+    
+    overall_data = [
+        ['Total Properties', 'Total Asking Price', 'Total Cost Basis'],
+        [f'{total_properties}', f'${total_asking_all:,.0f}', f'${total_cost_all:,.0f}']
+    ]
+    
+    overall_table = Table(overall_data, colWidths=[2*inch, 2*inch, 2*inch])
+    overall_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
+    ]))
+    
+    story.append(overall_table)
+    
+    # Build the PDF
+    try:
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    except Exception as e:
+        st.error(f"Error generating PDF: {str(e)}")
+        return None
+
 def generate_missing_fields_checklist_pdf(df):
     """Generate a super compact PDF checklist of missing fields for each property"""
     if not REPORTLAB_AVAILABLE:
@@ -865,6 +1051,19 @@ def display_detailed_tables(df):
                     label="📥 Download PDF Checklist",
                     data=pdf_buffer,
                     file_name=f"missing_fields_checklist_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                    mime="application/pdf"
+                )
+        
+        # Add Inventory Report download button
+        st.subheader("📊 Download Inventory Report")
+        if st.button("Generate Inventory Report", type="secondary"):
+            pdf_buffer = generate_inventory_report_pdf(filtered_df)
+            if pdf_buffer:
+                filename = f"{datetime.now().strftime('%Y%m%d')}_Inventory_Report.pdf"
+                st.download_button(
+                    label="📥 Download Inventory Report",
+                    data=pdf_buffer,
+                    file_name=filename,
                     mime="application/pdf"
                 )
 
