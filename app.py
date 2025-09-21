@@ -5,7 +5,7 @@ import plotly.express as px
 from datetime import datetime
 from io import BytesIO
 try:
-    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.pagesizes import letter, A4, A3, landscape
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
@@ -327,8 +327,8 @@ def create_visualizations(df):
                         color_continuous_scale='viridis')
             st.plotly_chart(fig, use_container_width=True)
 
-def wrap_text_smart(text, max_length=30):
-    """Smart text wrapping that preserves readability"""
+def wrap_text_smart(text, max_length=40):
+    """Smart text wrapping that preserves readability - increased length for wider tables"""
     if pd.isna(text) or text == '':
         return 'N/A'
     
@@ -356,7 +356,7 @@ def wrap_text_smart(text, max_length=30):
     return "<br/>".join(lines)
 
 def generate_inventory_report_pdf(df):
-    """Generate a comprehensive PDF inventory report with improved formatting"""
+    """Generate a comprehensive PDF inventory report with wider table formatting"""
     if not REPORTLAB_AVAILABLE:
         st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
         return None
@@ -364,14 +364,14 @@ def generate_inventory_report_pdf(df):
     # Create a BytesIO buffer for the PDF
     buffer = BytesIO()
     
-    # Use A3 landscape for maximum width
-    from reportlab.lib.pagesizes import A3, landscape
-    page_size = landscape(A3)  # 16.5" x 11.7" landscape
+    # Use A2 landscape for maximum width (23.4" x 16.5" landscape)
+    from reportlab.lib.pagesizes import A2
+    page_size = landscape(A2)
     
     # Create the PDF document with minimal margins
     doc = SimpleDocTemplate(buffer, pagesize=page_size, 
-                          topMargin=0.3*inch, bottomMargin=0.3*inch,
-                          leftMargin=0.3*inch, rightMargin=0.3*inch)
+                          topMargin=0.25*inch, bottomMargin=0.25*inch,
+                          leftMargin=0.25*inch, rightMargin=0.25*inch)
     story = []
     
     # Get styles
@@ -381,7 +381,7 @@ def generate_inventory_report_pdf(df):
     title_style = ParagraphStyle(
         'ReportTitle',
         parent=styles['Title'],
-        fontSize=18,
+        fontSize=20,
         fontName='Helvetica-Bold',
         textColor=colors.darkblue,
         spaceAfter=16,
@@ -391,7 +391,7 @@ def generate_inventory_report_pdf(df):
     subtitle_style = ParagraphStyle(
         'ReportSubtitle',
         parent=styles['Normal'],
-        fontSize=11,
+        fontSize=12,
         fontName='Helvetica',
         spaceAfter=24,
         alignment=1  # Center alignment
@@ -400,11 +400,11 @@ def generate_inventory_report_pdf(df):
     section_style = ParagraphStyle(
         'SectionHeader',
         parent=styles['Heading2'],
-        fontSize=16,
+        fontSize=18,
         fontName='Helvetica-Bold',
         textColor=colors.darkblue,
-        spaceAfter=10,
-        spaceBefore=20
+        spaceAfter=12,
+        spaceBefore=24
     )
     
     # Title and date
@@ -449,11 +449,11 @@ def generate_inventory_report_pdf(df):
         section_df = section_df.sort_values(['custom.All_State', 'custom.All_County', 'display_name'])
         
         for _, row in section_df.iterrows():
-            # Property name with smart wrapping
-            property_name = wrap_text_smart(row.get('display_name', 'Unknown Property'), 25)
-            owner = wrap_text_smart(row.get('custom.Asset_Owner', 'N/A'), 15)
+            # Property name with smart wrapping (increased length)
+            property_name = wrap_text_smart(row.get('display_name', 'Unknown Property'), 35)
+            owner = wrap_text_smart(row.get('custom.Asset_Owner', 'N/A'), 20)
             state = str(row.get('custom.All_State', 'N/A'))
-            county = wrap_text_smart(row.get('custom.All_County', 'N/A'), 15)
+            county = wrap_text_smart(row.get('custom.All_County', 'N/A'), 20)
             acres = f"{row.get('custom.All_Asset_Surveyed_Acres', 0):.1f}" if pd.notna(row.get('custom.All_Asset_Surveyed_Acres')) else 'N/A'
             
             # Format date purchased
@@ -498,24 +498,24 @@ def generate_inventory_report_pdf(df):
             ])
         
         if len(table_data) > 1:  # Only create table if there's data beyond headers
-            # Optimized column widths for A3 landscape (~15.9 inches available)
+            # Wider column widths for A2 landscape (~22.9 inches available)
             col_widths = [
-                1.2*inch,  # Property Name
-                0.8*inch,  # Owner
-                0.5*inch,  # State
-                0.8*inch,  # County
-                0.6*inch,  # Acres
-                0.8*inch,  # Date Purchased
-                0.8*inch,  # Cost Basis
-                0.9*inch,  # Current Price
-                0.8*inch,  # Profit Margin
-                0.6*inch,  # Margin %
-                0.6*inch,  # Markup %
-                0.8*inch,  # Price/Acre
-                0.8*inch,  # Cost/Acre
-                0.9*inch,  # Original Price
-                0.6*inch,  # %OLP
-                0.5*inch   # DOM
+                1.8*inch,  # Property Name (wider)
+                1.1*inch,  # Owner (wider)
+                0.6*inch,  # State
+                1.0*inch,  # County
+                0.7*inch,  # Acres
+                1.0*inch,  # Date Purchased
+                1.0*inch,  # Cost Basis
+                1.1*inch,  # Current Price
+                1.0*inch,  # Profit Margin
+                0.7*inch,  # Margin %
+                0.7*inch,  # Markup %
+                1.0*inch,  # Price/Acre
+                1.0*inch,  # Cost/Acre
+                1.1*inch,  # Original Price
+                0.7*inch,  # %OLP
+                0.6*inch   # DOM
             ]
             
             table = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -526,13 +526,13 @@ def generate_inventory_report_pdf(df):
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 8),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows styling
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 7),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
                 ('ALIGN', (0, 1), (3, -1), 'LEFT'),    # Property Name, Owner, State, County
                 ('ALIGN', (4, 1), (5, -1), 'CENTER'),  # Acres, Date
                 ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),  # All monetary values and percentages
@@ -545,14 +545,14 @@ def generate_inventory_report_pdf(df):
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
                 
                 # Better padding for readability
-                ('TOPPADDING', (0, 0), (-1, -1), 4),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-                ('LEFTPADDING', (0, 0), (-1, -1), 3),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
             ]))
             
             story.append(table)
-            story.append(Spacer(1, 16))
+            story.append(Spacer(1, 20))
         
         # Enhanced section summary
         section_count = len(section_df)
@@ -567,19 +567,19 @@ def generate_inventory_report_pdf(df):
             ['Portfolio Margin %', f'{margin_pct:.1f}%', '', '']
         ]
         
-        summary_table = Table(summary_data, colWidths=[1.5*inch, 1.2*inch, 1.5*inch, 1.2*inch])
+        summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
         summary_table.setStyle(TableStyle([
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('BACKGROUND', (0, 0), (-1, -1), colors.lightblue),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ]))
         
         story.append(summary_table)
-        story.append(Spacer(1, 24))
+        story.append(Spacer(1, 28))
     
     # Enhanced overall summary
     story.append(Paragraph("Overall Portfolio Summary", section_style))
@@ -596,18 +596,18 @@ def generate_inventory_report_pdf(df):
          f'${total_margin_all:,.0f}', f'{overall_margin_pct:.1f}%']
     ]
     
-    overall_table = Table(overall_data, colWidths=[1.8*inch, 2.2*inch, 2.2*inch, 2.0*inch, 1.8*inch])
+    overall_table = Table(overall_data, colWidths=[2.2*inch, 2.5*inch, 2.5*inch, 2.3*inch, 2.2*inch])
     overall_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
     
     story.append(overall_table)
