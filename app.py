@@ -328,7 +328,7 @@ def create_visualizations(df):
             st.plotly_chart(fig, use_container_width=True)
 
 def generate_inventory_report_pdf(df):
-    """Generate a comprehensive PDF inventory report similar to the sold properties report"""
+    """Generate a comprehensive PDF inventory report with updated columns"""
     if not REPORTLAB_AVAILABLE:
         st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
         return None
@@ -428,36 +428,66 @@ def generate_inventory_report_pdf(df):
             return "<br/>".join(lines)
         
         table_data = []
-        headers = ['Property Name', 'State', 'County', 'APN', 'Acres', 'Current Asking Price', 'Cost Basis']
+        headers = ['Property Name', 'Owner', 'State', 'County', 'Acres', 'Date Purchased', 'Cost Basis', 
+                  'Current Asking Price', 'Profit Margin', 'Margin', 'Markup', 'Asking Price/Acre', 
+                  'Cost Basis/Acre', 'Original Listing Price', '%OLP', 'DOM']
         table_data.append(headers)
         
         # Sort by state, then county, then property name
         section_df = section_df.sort_values(['custom.All_State', 'custom.All_County', 'display_name'])
         
         for _, row in section_df.iterrows():
-            property_name = wrap_text(row.get('display_name', 'Unknown Property'), 30)
+            property_name = wrap_text(row.get('display_name', 'Unknown Property'), 20)
+            owner = wrap_text(row.get('custom.Asset_Owner', 'N/A'), 15)
             state = str(row.get('custom.All_State', 'N/A'))
-            county = wrap_text(row.get('custom.All_County', 'N/A'), 15)
-            apn = wrap_text(row.get('custom.All_APN', 'N/A'), 20)
+            county = wrap_text(row.get('custom.All_County', 'N/A'), 12)
             acres = f"{row.get('custom.All_Asset_Surveyed_Acres', 0):.1f}" if pd.notna(row.get('custom.All_Asset_Surveyed_Acres')) else 'N/A'
-            asking_price = f"${row.get('primary_opportunity_value', 0):,.0f}" if pd.notna(row.get('primary_opportunity_value')) and row.get('primary_opportunity_value', 0) > 0 else 'N/A'
+            
+            # Format date purchased
+            date_purchased = 'N/A'
+            if pd.notna(row.get('custom.Asset_Date_Purchased')):
+                try:
+                    date_val = pd.to_datetime(row.get('custom.Asset_Date_Purchased'))
+                    date_purchased = date_val.strftime('%m/%d/%Y')
+                except:
+                    date_purchased = str(row.get('custom.Asset_Date_Purchased'))
+            
             cost_basis = f"${row.get('custom.Asset_Cost_Basis', 0):,.0f}" if pd.notna(row.get('custom.Asset_Cost_Basis')) and row.get('custom.Asset_Cost_Basis', 0) > 0 else 'N/A'
+            asking_price = f"${row.get('primary_opportunity_value', 0):,.0f}" if pd.notna(row.get('primary_opportunity_value')) and row.get('primary_opportunity_value', 0) > 0 else 'N/A'
+            profit_margin = f"${row.get('current_margin', 0):,.0f}" if pd.notna(row.get('current_margin')) else 'N/A'
+            margin_pct = f"{row.get('current_margin_pct', 0):.0f}%" if pd.notna(row.get('current_margin_pct')) else 'N/A'
+            markup = f"{row.get('markup_percentage', 0):.0f}%" if pd.notna(row.get('markup_percentage')) else 'N/A'
+            price_per_acre = f"${row.get('price_per_acre', 0):,.0f}" if pd.notna(row.get('price_per_acre')) and row.get('price_per_acre', 0) > 0 else 'N/A'
+            cost_per_acre = f"${row.get('cost_basis_per_acre', 0):,.0f}" if pd.notna(row.get('cost_basis_per_acre')) and row.get('cost_basis_per_acre', 0) > 0 else 'N/A'
+            original_price = f"${row.get('custom.Asset_Original_Listing_Price', 0):,.0f}" if pd.notna(row.get('custom.Asset_Original_Listing_Price')) and row.get('custom.Asset_Original_Listing_Price', 0) > 0 else 'N/A'
+            percent_olp = f"{row.get('percent_of_initial_listing', 0):.0f}%" if pd.notna(row.get('percent_of_initial_listing')) else 'N/A'
+            dom = f"{row.get('days_on_market', 0):.0f}" if pd.notna(row.get('days_on_market')) else 'N/A'
             
             # Convert to Paragraph objects for proper text wrapping
             table_data.append([
                 Paragraph(property_name, styles['Normal']),
+                Paragraph(owner, styles['Normal']),
                 Paragraph(state, styles['Normal']),
                 Paragraph(county, styles['Normal']),
-                Paragraph(apn, styles['Normal']),
                 Paragraph(acres, styles['Normal']),
+                Paragraph(date_purchased, styles['Normal']),
+                Paragraph(cost_basis, styles['Normal']),
                 Paragraph(asking_price, styles['Normal']),
-                Paragraph(cost_basis, styles['Normal'])
+                Paragraph(profit_margin, styles['Normal']),
+                Paragraph(margin_pct, styles['Normal']),
+                Paragraph(markup, styles['Normal']),
+                Paragraph(price_per_acre, styles['Normal']),
+                Paragraph(cost_per_acre, styles['Normal']),
+                Paragraph(original_price, styles['Normal']),
+                Paragraph(percent_olp, styles['Normal']),
+                Paragraph(dom, styles['Normal'])
             ])
         
         if len(table_data) > 1:  # Only create table if there's data beyond headers
             # Create table with appropriate column widths for landscape legal size
-            # Total width available: ~13 inches
-            col_widths = [3.5*inch, 0.6*inch, 1.2*inch, 1.8*inch, 0.7*inch, 1.2*inch, 1.2*inch]
+            # Total width available: ~13 inches, 16 columns
+            col_widths = [0.9*inch, 0.7*inch, 0.4*inch, 0.7*inch, 0.5*inch, 0.7*inch, 0.7*inch, 
+                         0.8*inch, 0.7*inch, 0.5*inch, 0.5*inch, 0.7*inch, 0.7*inch, 0.8*inch, 0.5*inch, 0.4*inch]
             table = Table(table_data, colWidths=col_widths, repeatRows=1)
             
             # Table styling to match the sold properties report
@@ -466,25 +496,23 @@ def generate_inventory_report_pdf(df):
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 0), (-1, 0), 7),
                 ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
                 ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
                 
                 # Data rows styling
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('ALIGN', (0, 1), (0, -1), 'LEFT'),    # Property Name - left align
-                ('ALIGN', (1, 1), (4, -1), 'CENTER'),  # State, County, APN, Acres - center
-                ('ALIGN', (5, 1), (-1, -1), 'RIGHT'),  # Prices - right align
+                ('FONTSIZE', (0, 1), (-1, -1), 6),
+                ('ALIGN', (0, 1), (3, -1), 'LEFT'),    # Property Name, Owner, State, County - left align
+                ('ALIGN', (4, 1), (4, -1), 'CENTER'),  # Acres - center
+                ('ALIGN', (5, 1), (5, -1), 'CENTER'),  # Date Purchased - center
+                ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),  # All monetary values and percentages - right align
                 ('VALIGN', (0, 1), (-1, -1), 'TOP'),   # Top align for wrapped text
                 
                 # Grid lines
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
                 
                 # Alternating row colors
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-                
-                # Row height for text wrapping
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
             ]))
             
