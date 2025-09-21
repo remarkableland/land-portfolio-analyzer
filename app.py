@@ -5,7 +5,7 @@ import plotly.express as px
 from datetime import datetime
 from io import BytesIO
 try:
-    from reportlab.lib.pagesizes import letter, A4, A3, landscape
+    from reportlab.lib.pagesizes import letter, A4, A3, landscape, legal
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
@@ -327,8 +327,8 @@ def create_visualizations(df):
                         color_continuous_scale='viridis')
             st.plotly_chart(fig, use_container_width=True)
 
-def wrap_text_smart(text, max_length=40):
-    """Smart text wrapping that preserves readability - increased length for wider tables"""
+def wrap_text_smart(text, max_length=30):
+    """Smart text wrapping that preserves readability for legal size"""
     if pd.isna(text) or text == '':
         return 'N/A'
     
@@ -356,7 +356,7 @@ def wrap_text_smart(text, max_length=40):
     return "<br/>".join(lines)
 
 def generate_inventory_report_pdf(df):
-    """Generate a comprehensive PDF inventory report with wider table formatting"""
+    """Generate a comprehensive PDF inventory report with legal size and narrow margins"""
     if not REPORTLAB_AVAILABLE:
         st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
         return None
@@ -364,14 +364,13 @@ def generate_inventory_report_pdf(df):
     # Create a BytesIO buffer for the PDF
     buffer = BytesIO()
     
-    # Use A2 landscape for maximum width (23.4" x 16.5" landscape)
-    from reportlab.lib.pagesizes import A2
-    page_size = landscape(A2)
+    # Use legal landscape for good width (14" x 8.5" landscape)
+    page_size = landscape(legal)
     
-    # Create the PDF document with minimal margins
+    # Create the PDF document with very narrow margins to maximize table width
     doc = SimpleDocTemplate(buffer, pagesize=page_size, 
-                          topMargin=0.25*inch, bottomMargin=0.25*inch,
-                          leftMargin=0.25*inch, rightMargin=0.25*inch)
+                          topMargin=0.15*inch, bottomMargin=0.15*inch,
+                          leftMargin=0.15*inch, rightMargin=0.15*inch)
     story = []
     
     # Get styles
@@ -381,30 +380,30 @@ def generate_inventory_report_pdf(df):
     title_style = ParagraphStyle(
         'ReportTitle',
         parent=styles['Title'],
-        fontSize=20,
+        fontSize=16,
         fontName='Helvetica-Bold',
         textColor=colors.darkblue,
-        spaceAfter=16,
+        spaceAfter=12,
         alignment=1  # Center alignment
     )
     
     subtitle_style = ParagraphStyle(
         'ReportSubtitle',
         parent=styles['Normal'],
-        fontSize=12,
+        fontSize=10,
         fontName='Helvetica',
-        spaceAfter=24,
+        spaceAfter=18,
         alignment=1  # Center alignment
     )
     
     section_style = ParagraphStyle(
         'SectionHeader',
         parent=styles['Heading2'],
-        fontSize=18,
+        fontSize=14,
         fontName='Helvetica-Bold',
         textColor=colors.darkblue,
-        spaceAfter=12,
-        spaceBefore=24
+        spaceAfter=8,
+        spaceBefore=16
     )
     
     # Title and date
@@ -449,11 +448,11 @@ def generate_inventory_report_pdf(df):
         section_df = section_df.sort_values(['custom.All_State', 'custom.All_County', 'display_name'])
         
         for _, row in section_df.iterrows():
-            # Property name with smart wrapping (increased length)
-            property_name = wrap_text_smart(row.get('display_name', 'Unknown Property'), 35)
-            owner = wrap_text_smart(row.get('custom.Asset_Owner', 'N/A'), 20)
+            # Property name with smart wrapping
+            property_name = wrap_text_smart(row.get('display_name', 'Unknown Property'), 25)
+            owner = wrap_text_smart(row.get('custom.Asset_Owner', 'N/A'), 15)
             state = str(row.get('custom.All_State', 'N/A'))
-            county = wrap_text_smart(row.get('custom.All_County', 'N/A'), 20)
+            county = wrap_text_smart(row.get('custom.All_County', 'N/A'), 15)
             acres = f"{row.get('custom.All_Asset_Surveyed_Acres', 0):.1f}" if pd.notna(row.get('custom.All_Asset_Surveyed_Acres')) else 'N/A'
             
             # Format date purchased
@@ -498,24 +497,24 @@ def generate_inventory_report_pdf(df):
             ])
         
         if len(table_data) > 1:  # Only create table if there's data beyond headers
-            # Wider column widths for A2 landscape (~22.9 inches available)
+            # Optimized column widths for legal landscape (~13.7 inches available with narrow margins)
             col_widths = [
-                1.8*inch,  # Property Name (wider)
-                1.1*inch,  # Owner (wider)
-                0.6*inch,  # State
-                1.0*inch,  # County
-                0.7*inch,  # Acres
-                1.0*inch,  # Date Purchased
-                1.0*inch,  # Cost Basis
-                1.1*inch,  # Current Price
-                1.0*inch,  # Profit Margin
-                0.7*inch,  # Margin %
-                0.7*inch,  # Markup %
-                1.0*inch,  # Price/Acre
-                1.0*inch,  # Cost/Acre
-                1.1*inch,  # Original Price
-                0.7*inch,  # %OLP
-                0.6*inch   # DOM
+                1.5*inch,  # Property Name
+                0.9*inch,  # Owner
+                0.5*inch,  # State
+                0.9*inch,  # County
+                0.6*inch,  # Acres
+                0.9*inch,  # Date Purchased
+                0.9*inch,  # Cost Basis
+                1.0*inch,  # Current Price
+                0.9*inch,  # Profit Margin
+                0.6*inch,  # Margin %
+                0.6*inch,  # Markup %
+                0.9*inch,  # Price/Acre
+                0.9*inch,  # Cost/Acre
+                1.0*inch,  # Original Price
+                0.6*inch,  # %OLP
+                0.5*inch   # DOM
             ]
             
             table = Table(table_data, colWidths=col_widths, repeatRows=1)
