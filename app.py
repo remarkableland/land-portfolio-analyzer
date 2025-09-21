@@ -406,7 +406,7 @@ def generate_inventory_report_pdf(df):
         spaceBefore=16
     )
     
-    # Updated note style - increased font size and consistent blue color
+    # Updated note style - left alignment
     note_style = ParagraphStyle(
         'ExplanatoryNote',
         parent=styles['Normal'],
@@ -415,11 +415,12 @@ def generate_inventory_report_pdf(df):
         textColor=colors.darkblue,  # Same blue as sections
         spaceAfter=16,
         spaceBefore=8,
+        alignment=0,  # Left alignment
         leftIndent=20,
         rightIndent=20
     )
     
-    # Updated disclaimer style - matching the note style
+    # Updated disclaimer style - left alignment
     disclaimer_style = ParagraphStyle(
         'DisclaimerStyle',
         parent=styles['Normal'],
@@ -428,7 +429,7 @@ def generate_inventory_report_pdf(df):
         textColor=colors.darkblue,  # Changed from grey to blue to match note
         spaceAfter=8,
         spaceBefore=16,
-        alignment=1,  # Center alignment
+        alignment=0,  # Left alignment
         leftIndent=20,
         rightIndent=20
     )
@@ -1397,12 +1398,14 @@ def display_detailed_tables(df):
                     mime="application/pdf"
                 )
         
-        # Add Inventory Report download button
+        # Add Inventory Report download button with timestamped filename
         st.subheader("📊 Download Inventory Report")
         if st.button("Generate Inventory Report", type="secondary"):
             pdf_buffer = generate_inventory_report_pdf(filtered_df)
             if pdf_buffer:
-                filename = f"{datetime.now().strftime('%Y%m%d')}_Inventory_Report.pdf"
+                # Create timestamped filename: YYYYMMDD_HHMM_Inventory_Report.pdf
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+                filename = f"{timestamp}_Inventory_Report.pdf"
                 st.download_button(
                     label="📥 Download Inventory Report",
                     data=pdf_buffer,
