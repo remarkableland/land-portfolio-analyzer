@@ -406,13 +406,26 @@ def generate_inventory_report_pdf(df):
         spaceBefore=16
     )
     
-    # Disclaimer style
+    # Updated note style - increased font size and consistent blue color
+    note_style = ParagraphStyle(
+        'ExplanatoryNote',
+        parent=styles['Normal'],
+        fontSize=12,  # Increased from 10
+        fontName='Helvetica-Oblique',
+        textColor=colors.darkblue,  # Same blue as sections
+        spaceAfter=16,
+        spaceBefore=8,
+        leftIndent=20,
+        rightIndent=20
+    )
+    
+    # Updated disclaimer style - matching the note style
     disclaimer_style = ParagraphStyle(
         'DisclaimerStyle',
         parent=styles['Normal'],
-        fontSize=10,
+        fontSize=12,  # Increased from 10 to match note
         fontName='Helvetica-Oblique',
-        textColor=colors.grey,
+        textColor=colors.darkblue,  # Changed from grey to blue to match note
         spaceAfter=8,
         spaceBefore=16,
         alignment=1,  # Center alignment
@@ -638,19 +651,7 @@ def generate_inventory_report_pdf(df):
     story.append(primary_summary_table)
     story.append(Spacer(1, 28))
     
-    # Add explanatory note before secondary sections
-    note_style = ParagraphStyle(
-        'ExplanatoryNote',
-        parent=styles['Normal'],
-        fontSize=10,
-        fontName='Helvetica-Oblique',
-        textColor=colors.darkblue,
-        spaceAfter=16,
-        spaceBefore=8,
-        leftIndent=20,
-        rightIndent=20
-    )
-    
+    # Add explanatory note before secondary sections using updated style
     explanatory_note = 'Note: "Listed (Secondary)" are alternative MLS or acreage-size listings for properties included in "Listed (Primary)" above.'
     story.append(Paragraph(explanatory_note, note_style))
     
@@ -820,7 +821,7 @@ def generate_inventory_report_pdf(df):
         story.append(summary_table)
         story.append(Spacer(1, 28))
     
-    # Add the disclaimer at the end
+    # Add the disclaimer at the end using updated style
     disclaimer_text = "Disclaimer: This data is sourced from our CRM and not our accounting software, based on then-available data. Final accounting data and results may vary slightly."
     story.append(Paragraph(disclaimer_text, disclaimer_style))
     
