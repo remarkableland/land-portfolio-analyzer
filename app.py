@@ -6,7 +6,7 @@ from datetime import datetime
 from io import BytesIO
 try:
     from reportlab.lib.pagesizes import letter, A4, A3, landscape, legal
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
     from reportlab.lib import colors
@@ -454,6 +454,8 @@ def generate_inventory_report_pdf(df):
         (df['custom.Asset_Listing_Type'] == 'Primary')
     ].copy()
     
+    section_count = 0
+    
     for section_name, status, listing_type in primary_sections:
         # Filter data for this section
         section_df = df[
@@ -463,6 +465,11 @@ def generate_inventory_report_pdf(df):
         
         if len(section_df) == 0:
             continue  # Skip empty sections
+        
+        # Add page break before each section (except the first one)
+        if section_count > 0:
+            story.append(PageBreak())
+        section_count += 1
         
         # Section header
         story.append(Paragraph(section_name, section_style))
@@ -593,7 +600,7 @@ def generate_inventory_report_pdf(df):
             story.append(Spacer(1, 20))
         
         # Enhanced section summary - NEW 2x3 FORMAT
-        section_count = len(section_df)
+        section_count_props = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
@@ -605,7 +612,7 @@ def generate_inventory_report_pdf(df):
         
         # Create 2x3 table layout
         summary_data = [
-            ['Properties', f'{section_count}', 'Total Asking Price', f'${total_asking:,.0f}'],
+            ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
             ['Average DOM', avg_dom_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
@@ -623,6 +630,9 @@ def generate_inventory_report_pdf(df):
         
         story.append(summary_table)
         story.append(Spacer(1, 28))
+    
+    # Add page break before Primary Portfolio Summary
+    story.append(PageBreak())
     
     # Enhanced primary portfolio summary (only primary sections)
     story.append(Paragraph("Primary Portfolio Summary", section_style))
@@ -659,6 +669,9 @@ def generate_inventory_report_pdf(df):
     # Add explanatory note before secondary sections using updated style
     explanatory_note = 'Note: "Listed (Secondary)" are alternative MLS or acreage-size listings for properties included in "Listed (Primary)" above.'
     story.append(Paragraph(explanatory_note, note_style))
+    
+    # Add page break before secondary sections
+    story.append(PageBreak())
     
     # Process secondary sections
     for section_name, status, listing_type in secondary_sections:
@@ -800,7 +813,7 @@ def generate_inventory_report_pdf(df):
             story.append(Spacer(1, 20))
         
         # Enhanced section summary - NEW 2x3 FORMAT
-        section_count = len(section_df)
+        section_count_props = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
@@ -812,7 +825,7 @@ def generate_inventory_report_pdf(df):
         
         # Create 2x3 table layout
         summary_data = [
-            ['Properties', f'{section_count}', 'Total Asking Price', f'${total_asking:,.0f}'],
+            ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
             ['Average DOM', avg_dom_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
