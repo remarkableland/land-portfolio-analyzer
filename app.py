@@ -592,17 +592,22 @@ def generate_inventory_report_pdf(df):
             story.append(table)
             story.append(Spacer(1, 20))
         
-        # Enhanced section summary
+        # Enhanced section summary - NEW 2x3 FORMAT
         section_count = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
         
+        # Calculate average DOM
+        avg_dom = section_df['days_on_market'].mean() if 'days_on_market' in section_df.columns and section_df['days_on_market'].notna().any() else 0
+        avg_dom_str = f"{avg_dom:.0f}" if pd.notna(avg_dom) and avg_dom > 0 else "N/A"
+        
+        # Create 2x3 table layout
         summary_data = [
             ['Properties', f'{section_count}', 'Total Asking Price', f'${total_asking:,.0f}'],
-            ['Total Margin', f'${total_margin:,.0f}', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Portfolio Margin %', f'{margin_pct:.1f}%', '', '']
+            ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
+            ['Average DOM', avg_dom_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
@@ -794,17 +799,22 @@ def generate_inventory_report_pdf(df):
             story.append(table)
             story.append(Spacer(1, 20))
         
-        # Enhanced section summary
+        # Enhanced section summary - NEW 2x3 FORMAT
         section_count = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
         
+        # Calculate average DOM
+        avg_dom = section_df['days_on_market'].mean() if 'days_on_market' in section_df.columns and section_df['days_on_market'].notna().any() else 0
+        avg_dom_str = f"{avg_dom:.0f}" if pd.notna(avg_dom) and avg_dom > 0 else "N/A"
+        
+        # Create 2x3 table layout
         summary_data = [
             ['Properties', f'{section_count}', 'Total Asking Price', f'${total_asking:,.0f}'],
-            ['Total Margin', f'${total_margin:,.0f}', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Portfolio Margin %', f'{margin_pct:.1f}%', '', '']
+            ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
+            ['Average DOM', avg_dom_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
