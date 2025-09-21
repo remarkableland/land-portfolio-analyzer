@@ -624,6 +624,22 @@ def generate_inventory_report_pdf(df):
     story.append(primary_summary_table)
     story.append(Spacer(1, 28))
     
+    # Add explanatory note before secondary sections
+    note_style = ParagraphStyle(
+        'ExplanatoryNote',
+        parent=styles['Normal'],
+        fontSize=10,
+        fontName='Helvetica-Oblique',
+        textColor=colors.darkblue,
+        spaceAfter=16,
+        spaceBefore=8,
+        leftIndent=20,
+        rightIndent=20
+    )
+    
+    explanatory_note = 'Note: "Listed (Secondary)" are alternative MLS or acreage-size listings for properties included in "Listed (Primary)" above.'
+    story.append(Paragraph(explanatory_note, note_style))
+    
     # Process secondary sections
     for section_name, status, listing_type in secondary_sections:
         # Filter data for this section
