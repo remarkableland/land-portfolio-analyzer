@@ -519,7 +519,7 @@ def generate_inventory_report_pdf(df):
             
             table = Table(table_data, colWidths=col_widths, repeatRows=1)
             
-            # Enhanced table styling
+            # Enhanced table styling with column-specific alignment
             table.setStyle(TableStyle([
                 # Header row styling
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
@@ -532,9 +532,12 @@ def generate_inventory_report_pdf(df):
                 # Data rows styling
                 ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('ALIGN', (0, 1), (3, -1), 'LEFT'),    # Property Name, Owner, State, County
-                ('ALIGN', (4, 1), (5, -1), 'CENTER'),  # Acres, Date
-                ('ALIGN', (6, 1), (-1, -1), 'RIGHT'),  # All monetary values and percentages
+                
+                # Column-specific alignment for data rows
+                ('ALIGN', (0, 1), (1, -1), 'LEFT'),     # Property Name and Owner - LEFT
+                ('ALIGN', (2, 1), (3, -1), 'CENTER'),   # State and County - CENTER
+                ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),   # All remaining columns - RIGHT
+                
                 ('VALIGN', (0, 1), (-1, -1), 'TOP'),   # Top align for wrapped text
                 
                 # Grid lines
