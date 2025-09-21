@@ -374,7 +374,7 @@ def generate_inventory_report_pdf(df):
         parent=styles['Heading2'],
         fontSize=14,
         fontName='Helvetica-Bold',
-        textColor=colors.blue,
+        textColor=colors.darkblue,
         spaceAfter=8,
         spaceBefore=16
     )
