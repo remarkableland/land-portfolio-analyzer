@@ -411,14 +411,23 @@ def generate_inventory_report_pdf(df):
     story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", subtitle_style))
     
     # Define the sections based on status and listing type
-    sections = [
+    primary_sections = [
         ("Purchased (Primary)", 'Purchased', 'Primary'),
         ("Listed (Primary)", 'Listed', 'Primary'), 
-        ("Under Contract (Primary)", 'Under Contract', 'Primary'),
+        ("Under Contract (Primary)", 'Under Contract', 'Primary')
+    ]
+    
+    secondary_sections = [
         ("Listed (Secondary)", 'Listed', 'Secondary')
     ]
     
-    for section_name, status, listing_type in sections:
+    # Process primary sections first
+    primary_data_for_summary = df[
+        (df['primary_opportunity_status_label'].isin(['Purchased', 'Listed', 'Under Contract'])) & 
+        (df['custom.Asset_Listing_Type'] == 'Primary')
+    ].copy()
+    
+    for section_name, status, listing_type in primary_sections:
         # Filter data for this section
         section_df = df[
             (df['primary_opportunity_status_label'] == status) & 
@@ -583,23 +592,23 @@ def generate_inventory_report_pdf(df):
         story.append(summary_table)
         story.append(Spacer(1, 28))
     
-    # Enhanced overall summary
-    story.append(Paragraph("Overall Portfolio Summary", section_style))
+    # Enhanced primary portfolio summary (only primary sections)
+    story.append(Paragraph("Primary Portfolio Summary", section_style))
     
-    total_properties = len(df)
-    total_asking_all = df['primary_opportunity_value'].sum()
-    total_cost_all = df['custom.Asset_Cost_Basis'].sum()
-    total_margin_all = total_asking_all - total_cost_all
-    overall_margin_pct = (total_margin_all / total_asking_all * 100) if total_asking_all > 0 else 0
+    total_properties_primary = len(primary_data_for_summary)
+    total_asking_primary = primary_data_for_summary['primary_opportunity_value'].sum()
+    total_cost_primary = primary_data_for_summary['custom.Asset_Cost_Basis'].sum()
+    total_margin_primary = total_asking_primary - total_cost_primary
+    overall_margin_pct_primary = (total_margin_primary / total_asking_primary * 100) if total_asking_primary > 0 else 0
     
-    overall_data = [
+    primary_summary_data = [
         ['Total Properties', 'Total Asking Price', 'Total Cost Basis', 'Total Margin', 'Portfolio Margin %'],
-        [f'{total_properties}', f'${total_asking_all:,.0f}', f'${total_cost_all:,.0f}', 
-         f'${total_margin_all:,.0f}', f'{overall_margin_pct:.1f}%']
+        [f'{total_properties_primary}', f'${total_asking_primary:,.0f}', f'${total_cost_primary:,.0f}', 
+         f'${total_margin_primary:,.0f}', f'{overall_margin_pct_primary:.1f}%']
     ]
     
-    overall_table = Table(overall_data, colWidths=[2.2*inch, 2.5*inch, 2.5*inch, 2.3*inch, 2.2*inch])
-    overall_table.setStyle(TableStyle([
+    primary_summary_table = Table(primary_summary_data, colWidths=[2.2*inch, 2.5*inch, 2.5*inch, 2.3*inch, 2.2*inch])
+    primary_summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
@@ -612,7 +621,174 @@ def generate_inventory_report_pdf(df):
         ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
     
-    story.append(overall_table)
+    story.append(primary_summary_table)
+    story.append(Spacer(1, 28))
+    
+    # Process secondary sections
+    for section_name, status, listing_type in secondary_sections:
+        # Filter data for this section
+        section_df = df[
+            (df['primary_opportunity_status_label'] == status) & 
+            (df['custom.Asset_Listing_Type'] == listing_type)
+        ].copy()
+        
+        if len(section_df) == 0:
+            continue  # Skip empty sections
+        
+        # Section header
+        story.append(Paragraph(section_name, section_style))
+        
+        # Prepare table data
+        table_data = []
+        
+        # Improved headers with better spacing
+        headers = [
+            'Property Name', 'Owner', 'State', 'County', 'Acres', 
+            'Date Purchased', 'Cost Basis', 'Current Price', 
+            'Profit Margin', 'Margin %', 'Markup %', 
+            'Price/Acre', 'Cost/Acre', 'Original Price', 
+            '%OLP', 'DOM'
+        ]
+        table_data.append(headers)
+        
+        # Sort by state, then county, then property name
+        section_df = section_df.sort_values(['custom.All_State', 'custom.All_County', 'display_name'])
+        
+        for _, row in section_df.iterrows():
+            # Property name with smart wrapping
+            property_name = wrap_text_smart(row.get('display_name', 'Unknown Property'), 25)
+            owner = wrap_text_smart(row.get('custom.Asset_Owner', 'N/A'), 15)
+            state = str(row.get('custom.All_State', 'N/A'))
+            county = wrap_text_smart(row.get('custom.All_County', 'N/A'), 15)
+            acres = f"{row.get('custom.All_Asset_Surveyed_Acres', 0):.1f}" if pd.notna(row.get('custom.All_Asset_Surveyed_Acres')) else 'N/A'
+            
+            # Format date purchased
+            date_purchased = 'N/A'
+            if pd.notna(row.get('custom.Asset_Date_Purchased')):
+                try:
+                    date_val = pd.to_datetime(row.get('custom.Asset_Date_Purchased'))
+                    date_purchased = date_val.strftime('%m/%d/%Y')
+                except:
+                    date_purchased = str(row.get('custom.Asset_Date_Purchased'))
+            
+            # Format financial data
+            cost_basis = f"${row.get('custom.Asset_Cost_Basis', 0):,.0f}" if pd.notna(row.get('custom.Asset_Cost_Basis')) and row.get('custom.Asset_Cost_Basis', 0) > 0 else 'N/A'
+            asking_price = f"${row.get('primary_opportunity_value', 0):,.0f}" if pd.notna(row.get('primary_opportunity_value')) and row.get('primary_opportunity_value', 0) > 0 else 'N/A'
+            profit_margin = f"${row.get('current_margin', 0):,.0f}" if pd.notna(row.get('current_margin')) else 'N/A'
+            margin_pct = f"{row.get('current_margin_pct', 0):.0f}%" if pd.notna(row.get('current_margin_pct')) else 'N/A'
+            markup = f"{row.get('markup_percentage', 0):.0f}%" if pd.notna(row.get('markup_percentage')) else 'N/A'
+            price_per_acre = f"${row.get('price_per_acre', 0):,.0f}" if pd.notna(row.get('price_per_acre')) and row.get('price_per_acre', 0) > 0 else 'N/A'
+            cost_per_acre = f"${row.get('cost_basis_per_acre', 0):,.0f}" if pd.notna(row.get('cost_basis_per_acre')) and row.get('cost_basis_per_acre', 0) > 0 else 'N/A'
+            original_price = f"${row.get('custom.Asset_Original_Listing_Price', 0):,.0f}" if pd.notna(row.get('custom.Asset_Original_Listing_Price')) and row.get('custom.Asset_Original_Listing_Price', 0) > 0 else 'N/A'
+            percent_olp = f"{row.get('percent_of_initial_listing', 0):.0f}%" if pd.notna(row.get('percent_of_initial_listing')) else 'N/A'
+            dom = f"{row.get('days_on_market', 0):.0f}" if pd.notna(row.get('days_on_market')) else 'N/A'
+            
+            # Create table row with Paragraph objects for proper text wrapping
+            table_data.append([
+                Paragraph(property_name, styles['Normal']),
+                Paragraph(owner, styles['Normal']),
+                Paragraph(state, styles['Normal']),
+                Paragraph(county, styles['Normal']),
+                Paragraph(acres, styles['Normal']),
+                Paragraph(date_purchased, styles['Normal']),
+                Paragraph(cost_basis, styles['Normal']),
+                Paragraph(asking_price, styles['Normal']),
+                Paragraph(profit_margin, styles['Normal']),
+                Paragraph(margin_pct, styles['Normal']),
+                Paragraph(markup, styles['Normal']),
+                Paragraph(price_per_acre, styles['Normal']),
+                Paragraph(cost_per_acre, styles['Normal']),
+                Paragraph(original_price, styles['Normal']),
+                Paragraph(percent_olp, styles['Normal']),
+                Paragraph(dom, styles['Normal'])
+            ])
+        
+        if len(table_data) > 1:  # Only create table if there's data beyond headers
+            # Optimized column widths for legal landscape (~13.7 inches available with narrow margins)
+            col_widths = [
+                1.5*inch,  # Property Name
+                0.9*inch,  # Owner
+                0.5*inch,  # State
+                0.9*inch,  # County
+                0.6*inch,  # Acres
+                0.9*inch,  # Date Purchased
+                0.9*inch,  # Cost Basis
+                1.0*inch,  # Current Price
+                0.9*inch,  # Profit Margin
+                0.6*inch,  # Margin %
+                0.6*inch,  # Markup %
+                0.9*inch,  # Price/Acre
+                0.9*inch,  # Cost/Acre
+                1.0*inch,  # Original Price
+                0.6*inch,  # %OLP
+                0.5*inch   # DOM
+            ]
+            
+            table = Table(table_data, colWidths=col_widths, repeatRows=1)
+            
+            # Enhanced table styling with column-specific alignment
+            table.setStyle(TableStyle([
+                # Header row styling
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+                
+                # Data rows styling
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                
+                # Column-specific alignment for data rows
+                ('ALIGN', (0, 1), (1, -1), 'LEFT'),     # Property Name and Owner - LEFT
+                ('ALIGN', (2, 1), (3, -1), 'CENTER'),   # State and County - CENTER
+                ('ALIGN', (4, 1), (-1, -1), 'RIGHT'),   # All remaining columns - RIGHT
+                
+                ('VALIGN', (0, 1), (-1, -1), 'TOP'),   # Top align for wrapped text
+                
+                # Grid lines
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+                
+                # Alternating row colors for better readability
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+                
+                # Better padding for readability
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 4),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            
+            story.append(table)
+            story.append(Spacer(1, 20))
+        
+        # Enhanced section summary
+        section_count = len(section_df)
+        total_asking = section_df['primary_opportunity_value'].sum()
+        total_cost = section_df['custom.Asset_Cost_Basis'].sum()
+        total_margin = total_asking - total_cost
+        margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
+        
+        summary_data = [
+            ['Properties', f'{section_count}', 'Total Asking Price', f'${total_asking:,.0f}'],
+            ['Total Margin', f'${total_margin:,.0f}', 'Total Cost Basis', f'${total_cost:,.0f}'],
+            ['Portfolio Margin %', f'{margin_pct:.1f}%', '', '']
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
+        summary_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.lightblue),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        
+        story.append(summary_table)
+        story.append(Spacer(1, 28))
     
     # Build the PDF
     try:
