@@ -604,12 +604,16 @@ def generate_inventory_report_pdf(df):
             story.append(table)
             story.append(Spacer(1, 20))
         
-        # Enhanced section summary - 2x4 FORMAT with Median Days Held
+        # Enhanced section summary - 2x4 FORMAT with Total Acres and rearranged
         section_count_props = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
+        
+        # Calculate total acres
+        total_acres = section_df['custom.All_Asset_Surveyed_Acres'].sum() if 'custom.All_Asset_Surveyed_Acres' in section_df.columns else 0
+        total_acres_str = f"{total_acres:,.1f}" if pd.notna(total_acres) and total_acres > 0 else "N/A"
         
         # Calculate average Days Held
         avg_days_held = section_df['days_held'].mean() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
@@ -619,12 +623,13 @@ def generate_inventory_report_pdf(df):
         median_days_held = section_df['days_held'].median() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
         median_days_held_str = f"{median_days_held:.0f}" if pd.notna(median_days_held) and median_days_held > 0 else "N/A"
         
-        # Create 2x4 table layout (expanded to include Median Days Held)
+        # Create 2x4 table layout (rearranged with Total Acres)
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
-            ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
+            ['Total Acres', total_acres_str, 'Total Cost Basis', f'${total_cost:,.0f}'],
             ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}'],
-            ['Median Days Held', median_days_held_str, '', '']
+            ['Median Days Held', median_days_held_str, 'Portfolio Margin %', f'{margin_pct:.1f}%']
+        ]
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
@@ -817,12 +822,16 @@ def generate_inventory_report_pdf(df):
             story.append(table)
             story.append(Spacer(1, 20))
         
-        # Enhanced section summary - 2x4 FORMAT with Median Days Held
+        # Enhanced section summary - 2x4 FORMAT with Total Acres and rearranged
         section_count_props = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
+        
+        # Calculate total acres
+        total_acres = section_df['custom.All_Asset_Surveyed_Acres'].sum() if 'custom.All_Asset_Surveyed_Acres' in section_df.columns else 0
+        total_acres_str = f"{total_acres:,.1f}" if pd.notna(total_acres) and total_acres > 0 else "N/A"
         
         # Calculate average Days Held
         avg_days_held = section_df['days_held'].mean() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
@@ -832,12 +841,13 @@ def generate_inventory_report_pdf(df):
         median_days_held = section_df['days_held'].median() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
         median_days_held_str = f"{median_days_held:.0f}" if pd.notna(median_days_held) and median_days_held > 0 else "N/A"
         
-        # Create 2x4 table layout (expanded to include Median Days Held)
+        # Create 2x4 table layout (rearranged with Total Acres)
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
-            ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
+            ['Total Acres', total_acres_str, 'Total Cost Basis', f'${total_cost:,.0f}'],
             ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}'],
-            ['Median Days Held', median_days_held_str, '', '']
+            ['Median Days Held', median_days_held_str, 'Portfolio Margin %', f'{margin_pct:.1f}%']
+        ]
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
