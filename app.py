@@ -673,7 +673,7 @@ def generate_inventory_report_pdf(df):
     
     # REMOVED page break before Primary Portfolio Summary
     
-    # Enhanced primary portfolio summary (only primary sections)
+    # Enhanced primary portfolio summary (only primary sections) with NEW METRICS
     story.append(Paragraph("Primary Portfolio Summary", section_style))
     
     total_properties_primary = len(primary_data_for_summary)
@@ -682,22 +682,51 @@ def generate_inventory_report_pdf(df):
     total_margin_primary = total_asking_primary - total_cost_primary
     overall_margin_pct_primary = (total_margin_primary / total_asking_primary * 100) if total_asking_primary > 0 else 0
     
+    # NEW METRICS CALCULATIONS
+    # Total acreage
+    total_acres_primary = primary_data_for_summary['custom.All_Asset_Surveyed_Acres'].sum() if 'custom.All_Asset_Surveyed_Acres' in primary_data_for_summary.columns else 0
+    total_acres_primary_str = f"{total_acres_primary:,.1f}" if pd.notna(total_acres_primary) and total_acres_primary > 0 else "N/A"
+    
+    # Average cost per acre
+    avg_cost_per_acre_primary = primary_data_for_summary['cost_basis_per_acre'].mean() if 'cost_basis_per_acre' in primary_data_for_summary.columns and primary_data_for_summary['cost_basis_per_acre'].notna().any() else 0
+    avg_cost_per_acre_primary_str = f"${avg_cost_per_acre_primary:,.0f}" if pd.notna(avg_cost_per_acre_primary) and avg_cost_per_acre_primary > 0 else "N/A"
+    
+    # Average price per acre
+    avg_price_per_acre_primary = primary_data_for_summary['price_per_acre'].mean() if 'price_per_acre' in primary_data_for_summary.columns and primary_data_for_summary['price_per_acre'].notna().any() else 0
+    avg_price_per_acre_primary_str = f"${avg_price_per_acre_primary:,.0f}" if pd.notna(avg_price_per_acre_primary) and avg_price_per_acre_primary > 0 else "N/A"
+    
+    # Average days held
+    avg_days_held_primary = primary_data_for_summary['days_held'].mean() if 'days_held' in primary_data_for_summary.columns and primary_data_for_summary['days_held'].notna().any() else 0
+    avg_days_held_primary_str = f"{avg_days_held_primary:.0f}" if pd.notna(avg_days_held_primary) and avg_days_held_primary > 0 else "N/A"
+    
+    # Create the enhanced summary table with NEW METRICS (3 rows x 3 columns)
     primary_summary_data = [
-        ['Total Properties', 'Total Asking Price', 'Total Cost Basis', 'Total Margin', 'Portfolio Margin %'],
-        [f'{total_properties_primary}', f'${total_asking_primary:,.0f}', f'${total_cost_primary:,.0f}', 
-         f'${total_margin_primary:,.0f}', f'{overall_margin_pct_primary:.1f}%']
+        ['Total Properties', 'Total Asking Price', 'Total Cost Basis'],
+        [f'{total_properties_primary}', f'${total_asking_primary:,.0f}', f'${total_cost_primary:,.0f}'],
+        ['Total Margin', 'Portfolio Margin %', 'Total Acreage'],
+        [f'${total_margin_primary:,.0f}', f'{overall_margin_pct_primary:.1f}%', total_acres_primary_str],
+        ['Avg Cost/Acre', 'Avg Price/Acre', 'Avg Days Held'],
+        [avg_cost_per_acre_primary_str, avg_price_per_acre_primary_str, avg_days_held_primary_str]
     ]
     
-    primary_summary_table = Table(primary_summary_data, colWidths=[2.2*inch, 2.5*inch, 2.5*inch, 2.3*inch, 2.2*inch])
+    primary_summary_table = Table(primary_summary_data, colWidths=[3.8*inch, 3.8*inch, 3.8*inch])
     primary_summary_table.setStyle(TableStyle([
+        # Header rows (rows 0, 2, 4) styling
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.darkgreen),
+        ('BACKGROUND', (0, 4), (-1, 4), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('TEXTCOLOR', (0, 2), (-1, 2), colors.white),
+        ('TEXTCOLOR', (0, 4), (-1, 4), colors.white),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 12),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        # Data rows (rows 1, 3, 5) styling
         ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
+        ('BACKGROUND', (0, 3), (-1, 3), colors.lightgrey),
+        ('BACKGROUND', (0, 5), (-1, 5), colors.lightgrey),
         ('TOPPADDING', (0, 0), (-1, -1), 10),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
@@ -1592,8 +1621,7 @@ def main():
                         'Fix Required': 'Set primary_opportunity_value to actual asking price (must be > $0)'
                     })
             else:
-                validation_issues.append({
-                    'Issue Type': '🔴 FATAL: Missing Asking Price Column',
+                validation_issues.append({RetryRDContinuepython                    'Issue Type': '🔴 FATAL: Missing Asking Price Column',
                     'Count': len(processed_df),
                     'Impact': 'NO financial calculations possible',
                     'Fix Required': 'Add primary_opportunity_value column to CRM export'
