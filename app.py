@@ -1444,6 +1444,42 @@ def main():
                     'Fix Required': 'Add custom.Asset_Owner column to CRM export'
                 })
             
+            # Check for missing or zero Cost Basis
+            if 'custom.Asset_Cost_Basis' in processed_df.columns:
+                missing_cost = processed_df[(processed_df['custom.Asset_Cost_Basis'].isna()) | (processed_df['custom.Asset_Cost_Basis'] == 0) | (processed_df['custom.Asset_Cost_Basis'] == '')]
+                if len(missing_cost) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Missing/Zero Cost Basis',
+                        'Count': len(missing_cost),
+                        'Impact': 'Financial calculations will be incorrect; properties marked incomplete',
+                        'Fix Required': 'Set custom.Asset_Cost_Basis to actual cost (values of $0 are treated as missing)'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Cost Basis Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO financial calculations possible',
+                    'Fix Required': 'Add custom.Asset_Cost_Basis column to CRM export'
+                })
+            
+            # Check for missing or zero Asking Price
+            if 'primary_opportunity_value' in processed_df.columns:
+                missing_price = processed_df[(processed_df['primary_opportunity_value'].isna()) | (processed_df['primary_opportunity_value'] <= 0) | (processed_df['primary_opportunity_value'] == '')]
+                if len(missing_price) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Missing/Zero Asking Price',
+                        'Count': len(missing_price),
+                        'Impact': 'Asking price MUST be greater than $0; these properties will have incorrect calculations',
+                        'Fix Required': 'Set primary_opportunity_value to actual asking price (must be > $0)'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Asking Price Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO financial calculations possible',
+                    'Fix Required': 'Add primary_opportunity_value column to CRM export'
+                })
+            
             # Display validation results
             if validation_issues:
                 # Check if there are any fatal issues
@@ -1473,6 +1509,22 @@ def main():
                                 type_cols = ['display_name', 'custom.Asset_Listing_Type', 'custom.All_State', 'custom.All_County']
                                 available_cols = [col for col in type_cols if col in invalid_type.columns]
                                 st.dataframe(invalid_type[available_cols], use_container_width=True)
+                        
+                        if 'custom.Asset_Cost_Basis' in processed_df.columns:
+                            missing_cost = processed_df[(processed_df['custom.Asset_Cost_Basis'].isna()) | (processed_df['custom.Asset_Cost_Basis'] == 0) | (processed_df['custom.Asset_Cost_Basis'] == '')]
+                            if len(missing_cost) > 0:
+                                st.write(f"**Properties with Missing/Zero Cost Basis ({len(missing_cost)}):**")
+                                cost_cols = ['display_name', 'custom.Asset_Cost_Basis', 'primary_opportunity_value', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in cost_cols if col in missing_cost.columns]
+                                st.dataframe(missing_cost[available_cols], use_container_width=True)
+                        
+                        if 'primary_opportunity_value' in processed_df.columns:
+                            missing_price = processed_df[(processed_df['primary_opportunity_value'].isna()) | (processed_df['primary_opportunity_value'] <= 0) | (processed_df['primary_opportunity_value'] == '')]
+                            if len(missing_price) > 0:
+                                st.write(f"**Properties with Missing/Zero Asking Price ({len(missing_price)}):**")
+                                price_cols = ['display_name', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in price_cols if col in missing_price.columns]
+                                st.dataframe(missing_price[available_cols], use_container_width=True)
                 
                 if warning_issues:
                     st.warning(f"⚠️ Found {len(warning_issues)} warning(s) - Review these issues")
