@@ -229,7 +229,7 @@ def display_hierarchy_breakdown(df):
     
     # Hierarchical breakdown with CORRECT ORDER
     if 'primary_opportunity_status_label' in df.columns:
-        status_order = ['Purchased', 'Listed', 'Under Contract']
+        status_order = ['Purchased', 'Listed', 'Under Contract', 'Off Market']
         available_statuses = df['primary_opportunity_status_label'].unique()
         ordered_statuses = [status for status in status_order if status in available_statuses]
         
@@ -302,7 +302,7 @@ def create_visualizations(df):
         if 'primary_opportunity_status_label' in df.columns:
             st.subheader("Distribution by Status")
             
-            status_order = ['Purchased', 'Listed', 'Under Contract']
+            status_order = ['Purchased', 'Listed', 'Under Contract', 'Off Market']
             status_counts = df['primary_opportunity_status_label'].value_counts()
             
             ordered_labels = []
@@ -313,7 +313,7 @@ def create_visualizations(df):
                     ordered_values.append(status_counts[status])
             
             fig = px.pie(values=ordered_values, names=ordered_labels,
-                        color_discrete_sequence=['#2E8B57', '#4169E1', '#FF6347'])
+                        color_discrete_sequence=['#2E8B57', '#4169E1', '#FF6347', '#FFD700'])
             st.plotly_chart(fig, use_container_width=True)
     
     # State distribution
@@ -442,16 +442,18 @@ def generate_inventory_report_pdf(df):
     primary_sections = [
         ("Purchased (Primary)", 'Purchased', 'Primary'),
         ("Listed (Primary)", 'Listed', 'Primary'), 
-        ("Under Contract (Primary)", 'Under Contract', 'Primary')
+        ("Under Contract (Primary)", 'Under Contract', 'Primary'),
+        ("Off Market (Primary)", 'Off Market', 'Primary')
     ]
     
     secondary_sections = [
-        ("Listed (Secondary)", 'Listed', 'Secondary')
+        ("Listed (Secondary)", 'Listed', 'Secondary'),
+        ("Off Market (Secondary)", 'Off Market', 'Secondary')
     ]
     
     # Process primary sections first
     primary_data_for_summary = df[
-        (df['primary_opportunity_status_label'].isin(['Purchased', 'Listed', 'Under Contract'])) & 
+        (df['primary_opportunity_status_label'].isin(['Purchased', 'Listed', 'Under Contract', 'Off Market'])) & 
         (df['custom.Asset_Listing_Type'] == 'Primary')
     ].copy()
     
@@ -841,7 +843,7 @@ def generate_inventory_report_pdf(df):
         story.append(Spacer(1, 28))
     
     # Add the explanatory note above the disclaimer using updated style (MOVED HERE)
-    explanatory_note = 'Note: "Listed (Secondary)" are alternative MLS or acreage-size listings for properties included in "Listed (Primary)" above.'
+    explanatory_note = 'Note: "Listed (Secondary)" and "Off Market (Secondary)" are alternative MLS or acreage-size listings for properties included in their respective Primary categories above.'
     story.append(Paragraph(explanatory_note, note_style))
     
     # Add the disclaimer at the end using updated style
@@ -966,7 +968,7 @@ def generate_missing_fields_checklist_pdf(df):
     # Add status sorting with custom order
     if 'primary_opportunity_status_label' in incomplete_properties.columns:
         # Create a status order mapping for sorting
-        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3}
+        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3, 'Off Market': 4}
         incomplete_properties['_status_sort'] = incomplete_properties['primary_opportunity_status_label'].map(status_order_map).fillna(999)
         sort_columns.append('_status_sort')
     
@@ -1008,6 +1010,8 @@ def generate_missing_fields_checklist_pdf(df):
                 status_display = f"🔵 {status.upper()}"
             elif status == 'Under Contract':
                 status_display = f"🟢 {status.upper()}"
+            elif status == 'Off Market':
+                status_display = f"🟡 {status.upper()}"
             else:
                 status_display = status.upper()
                 
@@ -1089,7 +1093,7 @@ def display_detailed_tables(df):
     with col1:
         status_filter = st.selectbox(
             "Filter by Opportunity Status",
-            ["All"] + ['Purchased', 'Listed', 'Under Contract']
+            ["All"] + ['Purchased', 'Listed', 'Under Contract', 'Off Market']
         )
     
     with col2:
@@ -1122,7 +1126,7 @@ def display_detailed_tables(df):
     # Apply default sort order: Status (custom order), State (alphabetical), County (alphabetical)
     if len(filtered_df) > 0:
         # Create a status order mapping for sorting
-        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3}
+        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3, 'Off Market': 4}
         
         # Add temporary sort column for status ordering
         if 'primary_opportunity_status_label' in filtered_df.columns:
@@ -1287,6 +1291,8 @@ def display_detailed_tables(df):
                     return f'🔵 {status}'     # Blue circle
                 elif status == 'Under Contract':
                     return f'🟢 {status}'     # Green circle
+                elif status == 'Off Market':
+                    return f'🟡 {status}'     # Yellow circle
                 else:
                     return status
             
@@ -1416,7 +1422,7 @@ def display_detailed_tables(df):
 def main():
     st.title("🏞️ Land Portfolio Analyzer")
     st.markdown("### Hierarchical Analysis: Opportunity Status → State → County")
-    st.markdown("**Status Order**: Purchased → Listed → Under Contract")
+    st.markdown("**Status Order**: Purchased → Listed → Under Contract → Off Market")
     
     uploaded_file = st.file_uploader("Upload your CRM CSV export", type=['csv'])
     
