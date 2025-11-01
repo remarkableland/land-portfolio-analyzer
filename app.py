@@ -604,22 +604,27 @@ def generate_inventory_report_pdf(df):
             story.append(table)
             story.append(Spacer(1, 20))
         
-        # Enhanced section summary - NEW 2x3 FORMAT
+        # Enhanced section summary - 2x4 FORMAT with Median Days Held
         section_count_props = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
         
-        # Calculate average DOM
+        # Calculate average Days Held
         avg_days_held = section_df['days_held'].mean() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
         avg_days_held_str = f"{avg_days_held:.0f}" if pd.notna(avg_days_held) and avg_days_held > 0 else "N/A"
         
-        # Create 2x3 table layout
+        # Calculate median Days Held
+        median_days_held = section_df['days_held'].median() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
+        median_days_held_str = f"{median_days_held:.0f}" if pd.notna(median_days_held) and median_days_held > 0 else "N/A"
+        
+        # Create 2x4 table layout (expanded to include Median Days Held)
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
+            ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}'],
+            ['Median Days Held', median_days_held_str, '', '']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
@@ -812,22 +817,27 @@ def generate_inventory_report_pdf(df):
             story.append(table)
             story.append(Spacer(1, 20))
         
-        # Enhanced section summary - NEW 2x3 FORMAT
+        # Enhanced section summary - 2x4 FORMAT with Median Days Held
         section_count_props = len(section_df)
         total_asking = section_df['primary_opportunity_value'].sum()
         total_cost = section_df['custom.Asset_Cost_Basis'].sum()
         total_margin = total_asking - total_cost
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
         
-        # Calculate average DOM
+        # Calculate average Days Held
         avg_days_held = section_df['days_held'].mean() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
         avg_days_held_str = f"{avg_days_held:.0f}" if pd.notna(avg_days_held) and avg_days_held > 0 else "N/A"
         
-        # Create 2x3 table layout
+        # Calculate median Days Held
+        median_days_held = section_df['days_held'].median() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
+        median_days_held_str = f"{median_days_held:.0f}" if pd.notna(median_days_held) and median_days_held > 0 else "N/A"
+        
+        # Create 2x4 table layout (expanded to include Median Days Held)
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
+            ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}'],
+            ['Median Days Held', median_days_held_str, '', '']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
