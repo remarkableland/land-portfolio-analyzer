@@ -673,7 +673,7 @@ def generate_inventory_report_pdf(df):
     
     # REMOVED page break before Primary Portfolio Summary
     
-    # Enhanced primary portfolio summary (only primary sections) with NEW METRICS
+    # Enhanced primary portfolio summary (only primary sections)
     story.append(Paragraph("Primary Portfolio Summary", section_style))
     
     total_properties_primary = len(primary_data_for_summary)
@@ -682,72 +682,24 @@ def generate_inventory_report_pdf(df):
     total_margin_primary = total_asking_primary - total_cost_primary
     overall_margin_pct_primary = (total_margin_primary / total_asking_primary * 100) if total_asking_primary > 0 else 0
     
-    # Calculate total acres
-    total_acres_primary = primary_data_for_summary['custom.All_Asset_Surveyed_Acres'].sum() if 'custom.All_Asset_Surveyed_Acres' in primary_data_for_summary.columns else 0
-    
-    # Calculate average metrics
-    avg_days_held_primary = primary_data_for_summary['days_held'].mean() if 'days_held' in primary_data_for_summary.columns and primary_data_for_summary['days_held'].notna().any() else 0
-    avg_price_per_acre_primary = (total_asking_primary / total_acres_primary) if total_acres_primary > 0 else 0
-    avg_cost_per_acre_primary = (total_cost_primary / total_acres_primary) if total_acres_primary > 0 else 0
-    
-    # Format values
-    total_acres_str = f"{total_acres_primary:,.1f}" if total_acres_primary > 0 else "N/A"
-    avg_days_held_str = f"{avg_days_held_primary:.0f}" if avg_days_held_primary > 0 else "N/A"
-    avg_price_per_acre_str = f"${avg_price_per_acre_primary:,.0f}" if avg_price_per_acre_primary > 0 else "N/A"
-    avg_cost_per_acre_str = f"${avg_cost_per_acre_primary:,.0f}" if avg_cost_per_acre_primary > 0 else "N/A"
-    
-    # Create two-row summary table
     primary_summary_data = [
-        ['Total Properties', 'Total Acres', 'Total Asking Price', 'Total Cost Basis', 'Total Margin', 'Portfolio Margin %'],
-        [f'{total_properties_primary}', total_acres_str, f'${total_asking_primary:,.0f}', f'${total_cost_primary:,.0f}', 
-         f'${total_margin_primary:,.0f}', f'{overall_margin_pct_primary:.1f}%'],
-        ['Avg Days Held', 'Avg Price/Acre', 'Avg Cost/Acre', '', '', ''],
-        [avg_days_held_str, avg_price_per_acre_str, avg_cost_per_acre_str, '', '', '']
+        ['Total Properties', 'Total Asking Price', 'Total Cost Basis', 'Total Margin', 'Portfolio Margin %'],
+        [f'{total_properties_primary}', f'${total_asking_primary:,.0f}', f'${total_cost_primary:,.0f}', 
+         f'${total_margin_primary:,.0f}', f'{overall_margin_pct_primary:.1f}%']
     ]
     
-    primary_summary_table = Table(primary_summary_data, colWidths=[1.9*inch, 1.9*inch, 2.0*inch, 2.0*inch, 1.9*inch, 2.0*inch])
+    primary_summary_table = Table(primary_summary_data, colWidths=[2.2*inch, 2.5*inch, 2.5*inch, 2.3*inch, 2.2*inch])
     primary_summary_table.setStyle(TableStyle([
-        # First row header
         ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
-        
-        # First row data
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 12),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
         ('BACKGROUND', (0, 1), (-1, 1), colors.lightgrey),
-        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 1), (-1, 1), 11),
-        ('ALIGN', (0, 1), (-1, 1), 'CENTER'),
-        ('VALIGN', (0, 1), (-1, 1), 'MIDDLE'),
-        
-        # Second row header (Average metrics)
-        ('BACKGROUND', (0, 2), (2, 2), colors.darkgreen),
-        ('TEXTCOLOR', (0, 2), (2, 2), colors.white),
-        ('FONTNAME', (0, 2), (2, 2), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 2), (2, 2), 11),
-        ('ALIGN', (0, 2), (2, 2), 'CENTER'),
-        ('VALIGN', (0, 2), (2, 2), 'MIDDLE'),
-        
-        # Second row data
-        ('BACKGROUND', (0, 3), (2, 3), colors.lightgrey),
-        ('FONTNAME', (0, 3), (2, 3), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 3), (2, 3), 11),
-        ('ALIGN', (0, 3), (2, 3), 'CENTER'),
-        ('VALIGN', (0, 3), (2, 3), 'MIDDLE'),
-        
-        # Hide empty cells in second row
-        ('BACKGROUND', (3, 2), (-1, 3), colors.white),
-        ('GRID', (3, 2), (-1, 3), 0, colors.white),
-        
-        # Grid for visible cells
-        ('GRID', (0, 0), (2, 3), 1, colors.black),
-        ('GRID', (0, 0), (-1, 1), 1, colors.black),
-        
-        # Padding
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
     ]))
     
     story.append(primary_summary_table)
@@ -1026,6 +978,865 @@ def generate_inventory_report_pdf(df):
         st.error(f"Error generating PDF: {str(e)}")
         return None
 
-# [REMAINING FUNCTIONS CONTINUE HERE - Due to length limits, I'm showing the key change]
-# The remaining functions (generate_missing_fields_checklist_pdf, display_detailed_tables, main) 
-# remain unchanged from the original code
+def generate_missing_fields_checklist_pdf(df):
+    """Generate a super compact PDF checklist of missing fields for each property"""
+    if not REPORTLAB_AVAILABLE:
+        st.error("PDF generation requires reportlab. Please install it: pip install reportlab")
+        return None
+    
+    # Create a BytesIO buffer for the PDF
+    buffer = BytesIO()
+    
+    # Create the PDF document with very tight margins
+    doc = SimpleDocTemplate(buffer, pagesize=letter, 
+                          topMargin=0.4*inch, bottomMargin=0.4*inch,
+                          leftMargin=0.4*inch, rightMargin=0.4*inch)
+    story = []
+    
+    # Get styles and create super compact styles
+    styles = getSampleStyleSheet()
+    
+    # Super compact title style
+    title_style = ParagraphStyle(
+        'SuperCompactTitle',
+        parent=styles['Heading1'],
+        fontSize=12,
+        spaceAfter=8,
+        spaceBefore=0,
+        alignment=1  # Center alignment
+    )
+    
+    # Super compact heading styles
+    state_style = ParagraphStyle(
+        'StateHeading',
+        parent=styles['Heading2'],
+        fontSize=10,
+        spaceAfter=2,
+        spaceBefore=6,
+        textColor=colors.black,
+        fontName='Helvetica-Bold'
+    )
+    
+    county_style = ParagraphStyle(
+        'CountyHeading',
+        parent=styles['Heading3'],
+        fontSize=9,
+        spaceAfter=1,
+        spaceBefore=4,
+        leftIndent=8,
+        textColor=colors.darkblue,
+        fontName='Helvetica-Bold'
+    )
+    
+    property_style = ParagraphStyle(
+        'PropertyStyle',
+        parent=styles['Normal'],
+        fontSize=8,
+        spaceAfter=1,
+        spaceBefore=2,
+        leftIndent=16,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Super compact date style
+    date_style = ParagraphStyle(
+        'DateStyle',
+        parent=styles['Normal'],
+        fontSize=7,
+        spaceAfter=4,
+        alignment=1  # Center alignment
+    )
+    
+    # Title and date
+    story.append(Paragraph("Property Data Completeness Checklist", title_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%m/%d/%Y')}", date_style))
+    
+    # Required fields for reference
+    required_fields = {
+        'custom.All_APN': 'APN',
+        'custom.All_Asset_Surveyed_Acres': 'Surveyed Acres',
+        'custom.All_County': 'County',
+        'custom.All_RemarkableLand_URL': 'RemarkableLand URL',
+        'custom.All_State': 'State',
+        'custom.Asset_Cost_Basis': 'Cost Basis',
+        'custom.Asset_Date_Purchased': 'Date Purchased',
+        'custom.Asset_Original_Listing_Price': 'Original Listing Price',
+        'custom.Asset_Land_ID_Internal_URL': 'Land ID Internal URL',
+        'custom.Asset_Land_ID_Share_URL': 'Land ID Share URL',
+        'custom.Asset_MLS#': 'MLS#',
+        'custom.Asset_MLS_Listing_Date': 'MLS Listing Date',
+        'custom.Asset_Street_Address': 'Street Address',
+        'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
+        'custom.Asset_Owner': 'Owner',
+        'custom.Asset_Listing_Type': 'Listing Type',
+        'avg_one_time_active_opportunity_value': 'Avg One Time Active Opportunity Value'
+    }
+    
+    # Filter to only properties with missing information
+    incomplete_properties = df[df['missing_information'] != '✅ Complete'].copy()
+    
+    if len(incomplete_properties) == 0:
+        story.append(Paragraph("🎉 Congratulations! All properties have complete data.", styles['Normal']))
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    
+    # Sort by Status first, then State, then County, then Property Name
+    sort_columns = []
+    
+    # Add status sorting with custom order
+    if 'primary_opportunity_status_label' in incomplete_properties.columns:
+        # Create a status order mapping for sorting
+        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3, 'Off Market': 4}
+        incomplete_properties['_status_sort'] = incomplete_properties['primary_opportunity_status_label'].map(status_order_map).fillna(999)
+        sort_columns.append('_status_sort')
+    
+    if 'custom.All_State' in incomplete_properties.columns:
+        sort_columns.append('custom.All_State')
+    if 'custom.All_County' in incomplete_properties.columns:
+        sort_columns.append('custom.All_County')
+    if 'display_name' in incomplete_properties.columns:
+        sort_columns.append('display_name')
+    
+    if sort_columns:
+        incomplete_properties = incomplete_properties.sort_values(sort_columns)
+        
+        # Remove the temporary sort column
+        if '_status_sort' in incomplete_properties.columns:
+            incomplete_properties = incomplete_properties.drop('_status_sort', axis=1)
+    
+    # Group by Status, State and County for ultra-compact layout
+    current_status = None
+    current_state = None
+    current_county = None
+    
+    for _, row in incomplete_properties.iterrows():
+        status = row.get('primary_opportunity_status_label', 'Unknown Status')
+        state = row.get('custom.All_State', 'Unknown State')
+        county = row.get('custom.All_County', 'Unknown County')
+        property_name = row.get('display_name', 'Unknown Property')
+        missing_info = row.get('missing_information', '')
+        
+        # Add status header if changed (new top-level grouping)
+        if status != current_status:
+            current_status = status
+            story.append(Spacer(1, 8))  # Slightly more spacing for status changes
+            
+            # Format status with color coding
+            if status == 'Purchased':
+                status_display = f"🔴 {status.upper()}"
+            elif status == 'Listed':
+                status_display = f"🔵 {status.upper()}"
+            elif status == 'Under Contract':
+                status_display = f"🟢 {status.upper()}"
+            elif status == 'Off Market':
+                status_display = f"🟡 {status.upper()}"
+            else:
+                status_display = status.upper()
+                
+            story.append(Paragraph(f"STATUS: {status_display}", title_style))
+            current_state = None  # Reset state when status changes
+            current_county = None  # Reset county when status changes
+        
+        # Add state header if changed (ultra compact)
+        if state != current_state:
+            current_state = state
+            story.append(Spacer(1, 4))  # Minimal spacing
+            story.append(Paragraph(f"STATE: {state}", state_style))
+            current_county = None  # Reset county when state changes
+        
+        # Add county header if changed (ultra compact)
+        if county != current_county:
+            current_county = county
+            story.append(Spacer(1, 2))  # Minimal spacing
+            story.append(Paragraph(f"{county} County", county_style))
+        
+        # Property name (ultra compact)
+        story.append(Spacer(1, 1))  # Minimal spacing
+        # Truncate very long property names for better fit
+        display_name = property_name[:60] + "..." if len(property_name) > 60 else property_name
+        story.append(Paragraph(f"{display_name}", property_style))
+        
+        # Parse missing fields and create ultra-compact checkboxes in 3 columns
+        if missing_info.startswith('❌ Missing: '):
+            missing_fields_text = missing_info.replace('❌ Missing: ', '')
+            missing_fields_list = [field.strip() for field in missing_fields_text.split(',')]
+            
+            # Create ultra-compact checklist - 3 items per row for maximum space utilization
+            if missing_fields_list:
+                rows = []
+                for i in range(0, len(missing_fields_list), 3):
+                    row = []
+                    for j in range(3):
+                        if i + j < len(missing_fields_list):
+                            field = missing_fields_list[i + j]
+                            # Truncate long field names
+                            short_field = field[:18] + ('...' if len(field) > 18 else '')
+                            row.append('☐ ' + short_field)
+                        else:
+                            row.append('')
+                    rows.append(row)
+                
+                # Create super compact table with 3 columns
+                if rows:
+                    checklist_table = Table(rows, colWidths=[1.8*inch, 1.8*inch, 1.8*inch])
+                    checklist_table.setStyle(TableStyle([
+                        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                        ('FONTSIZE', (0, 0), (-1, -1), 7),  # Very small font
+                        ('LEFTPADDING', (0, 0), (-1, -1), 20),  # Indent from property name
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+                        ('TOPPADDING', (0, 0), (-1, -1), 0),   # No top padding
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 0), # No bottom padding
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ]))
+                    story.append(checklist_table)
+        
+        # No spacing between properties to maximize density
+    
+    # Build the PDF
+    try:
+        doc.build(story)
+        buffer.seek(0)
+        return buffer
+    except Exception as e:
+        st.error(f"Error generating PDF: {str(e)}")
+        return None
+
+def display_detailed_tables(df):
+    """Display detailed property information with filtering"""
+    st.header("📋 Detailed Property Information")
+    
+    # Filters
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        status_filter = st.selectbox(
+            "Filter by Opportunity Status",
+            ["All"] + ['Purchased', 'Listed', 'Under Contract', 'Off Market']
+        )
+    
+    with col2:
+        if 'custom.All_State' in df.columns:
+            state_filter = st.selectbox(
+                "Filter by State",
+                ["All"] + sorted(df['custom.All_State'].unique().tolist())
+            )
+        else:
+            state_filter = "All"
+    
+    with col3:
+        if 'custom.All_County' in df.columns:
+            county_filter = st.selectbox(
+                "Filter by County",
+                ["All"] + sorted(df['custom.All_County'].unique().tolist())
+            )
+        else:
+            county_filter = "All"
+    
+    # Apply filters
+    filtered_df = df.copy()
+    if status_filter != "All":
+        filtered_df = filtered_df[filtered_df['primary_opportunity_status_label'] == status_filter]
+    if state_filter != "All":
+        filtered_df = filtered_df[filtered_df['custom.All_State'] == state_filter]
+    if county_filter != "All":
+        filtered_df = filtered_df[filtered_df['custom.All_County'] == county_filter]
+    
+    # Apply default sort order: Status (custom order), State (alphabetical), County (alphabetical)
+    if len(filtered_df) > 0:
+        # Create a status order mapping for sorting
+        status_order_map = {'Purchased': 1, 'Listed': 2, 'Under Contract': 3, 'Off Market': 4}
+        
+        # Add temporary sort column for status ordering
+        if 'primary_opportunity_status_label' in filtered_df.columns:
+            filtered_df['_status_sort'] = filtered_df['primary_opportunity_status_label'].map(status_order_map).fillna(999)
+        
+        # Sort by: Status (custom order), State (alphabetical), County (alphabetical)
+        sort_columns = []
+        if 'primary_opportunity_status_label' in filtered_df.columns:
+            sort_columns.append('_status_sort')
+        if 'custom.All_State' in filtered_df.columns:
+            sort_columns.append('custom.All_State')
+        if 'custom.All_County' in filtered_df.columns:
+            sort_columns.append('custom.All_County')
+        
+        if sort_columns:
+            filtered_df = filtered_df.sort_values(sort_columns, ascending=True)
+        
+        # Remove the temporary sort column
+        if '_status_sort' in filtered_df.columns:
+            filtered_df = filtered_df.drop('_status_sort', axis=1)
+    
+    st.subheader(f"Showing {len(filtered_df)} properties")
+    
+    # Select key columns for display - REMOVED Lead Count
+    desired_columns = [
+        'display_name',                         # Property Name (Left)
+        'id',                                   # ID for creating links
+        'primary_opportunity_status_label',     # Status (Left)
+        'custom.All_State',                     # State (Left)
+        'custom.All_County',                    # County (Left)
+        'custom.All_APN',                       # APN (Left)
+        'custom.All_Asset_Surveyed_Acres',      # Acres (Right)
+        'primary_opportunity_value',            # Current Asking Price (Right)
+        'custom.Asset_Cost_Basis',              # Cost Basis (Right)
+        'current_margin',                       # Profit Margin (Right)
+        'current_margin_pct',                   # Margin (Center)
+        'markup_percentage',                    # Markup (Center)
+        'price_per_acre',                       # Asking Price/Acre (Right)
+        'cost_basis_per_acre',                  # Cost Basis/Acre (Right)
+        'custom.Asset_Original_Listing_Price',  # Original Listing Price (Right)
+        'percent_of_initial_listing',           # %OLP (Center)
+        'days_held',                       # Days Held (Center)
+        'price_reductions',                     # Price Reductions (Center)
+        'custom.Asset_Last_Mapping_Audit',     # Last Mapping Audit (Center)
+        'missing_information'                   # Missing Information (Left)
+    ]
+    
+    # Force include columns
+    display_columns = []
+    for col in desired_columns:
+        if col in filtered_df.columns:
+            display_columns.append(col)
+    
+    if display_columns:
+        # FORCE include Original Listing Price if it exists
+        if 'custom.Asset_Original_Listing_Price' in filtered_df.columns and 'custom.Asset_Original_Listing_Price' not in display_columns:
+            try:
+                pos = display_columns.index('primary_opportunity_value')
+                display_columns.insert(pos, 'custom.Asset_Original_Listing_Price')
+            except ValueError:
+                display_columns.append('custom.Asset_Original_Listing_Price')
+        
+        # FORCE include Cost Basis per Acre if it exists
+        if 'cost_basis_per_acre' in filtered_df.columns and 'cost_basis_per_acre' not in display_columns:
+            try:
+                pos = display_columns.index('current_margin')
+                display_columns.insert(pos, 'cost_basis_per_acre')
+            except ValueError:
+                display_columns.append('cost_basis_per_acre')
+        
+        display_df = filtered_df[display_columns].copy()
+        
+        # Create Property Name with Link column - simpler approach
+        if 'display_name' in display_df.columns and 'id' in display_df.columns:
+            def create_property_name(row):
+                property_name = row['display_name'] if pd.notna(row['display_name']) else "Unknown Property"
+                return property_name
+            
+            def create_link_url(row):
+                property_id = row['id'] if pd.notna(row['id']) else ""
+                if property_id:
+                    return f"https://app.close.com/lead/{property_id}"
+                else:
+                    return ""
+            
+            # Create the clean property name and separate link columns
+            display_df['Property Name'] = display_df.apply(create_property_name, axis=1)
+            display_df['Close.com Link'] = display_df.apply(create_link_url, axis=1)
+            
+            # Remove the original columns
+            display_df = display_df.drop(['display_name', 'id'], axis=1)
+            
+            # Reorder columns to put Property Name and Link first
+            cols = list(display_df.columns)
+            # Remove these columns from their current positions
+            if 'Property Name' in cols:
+                cols.remove('Property Name')
+            if 'Close.com Link' in cols:
+                cols.remove('Close.com Link')
+            # Insert them at the beginning
+            cols.insert(0, 'Close.com Link')
+            cols.insert(0, 'Property Name')
+            display_df = display_df[cols]
+        
+        # Format currency columns
+        currency_columns = ['custom.Asset_Original_Listing_Price', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'cost_basis_per_acre', 'current_margin', 'price_per_acre']
+        for col in currency_columns:
+            if col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"${x:,.0f}" if pd.notna(x) else "N/A")
+        
+        # Format percentage columns
+        percentage_columns = ['markup_percentage', 'percent_of_initial_listing']
+        for col in percentage_columns:
+            if col in display_df.columns:
+                display_df[col] = display_df[col].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "N/A")
+        
+        # Format margin percentage separately with no decimals
+        if 'current_margin_pct' in display_df.columns:
+            display_df['current_margin_pct'] = display_df['current_margin_pct'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "N/A")
+        
+        # Format numeric columns (including rounded Days Held)
+        if 'custom.All_Asset_Surveyed_Acres' in display_df.columns:
+            display_df['custom.All_Asset_Surveyed_Acres'] = display_df['custom.All_Asset_Surveyed_Acres'].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
+        
+        # Format Days Held with no decimals (rounded to whole days)
+        if 'days_held' in display_df.columns:
+            display_df['days_held'] = display_df['days_held'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
+        
+        # Format price reductions with dash for none, lowercase x for reductions
+        if 'price_reductions' in display_df.columns:
+            display_df['price_reductions'] = display_df['price_reductions'].apply(
+                lambda x: "-" if pd.notna(x) and x == 0 else f"{x:.0f}x" if pd.notna(x) else "N/A"
+            )
+        
+        # Format Last Mapping Audit date with 60-day warning
+        if 'custom.Asset_Last_Mapping_Audit' in display_df.columns:
+            def format_audit_date(date_val):
+                if pd.isna(date_val) or date_val == '':
+                    return "N/A"
+                try:
+                    # Try to parse the date and format it nicely
+                    parsed_date = pd.to_datetime(date_val)
+                    formatted_date = parsed_date.strftime('%m/%d/%Y')
+                    
+                    # Check if more than 60 days old
+                    days_old = (datetime.now() - parsed_date).days
+                    if days_old > 60:
+                        return f"🔴 {formatted_date}"
+                    else:
+                        return formatted_date
+                except:
+                    return str(date_val)  # Return as-is if parsing fails
+            
+            display_df['custom.Asset_Last_Mapping_Audit'] = display_df['custom.Asset_Last_Mapping_Audit'].apply(format_audit_date)
+        
+        # Color-code the Status column with emojis (Streamlit dataframes don't support HTML)
+        if 'primary_opportunity_status_label' in display_df.columns:
+            def format_status(status):
+                if status == 'Purchased':
+                    return f'🔴 {status}'     # Red circle
+                elif status == 'Listed':
+                    return f'🔵 {status}'     # Blue circle
+                elif status == 'Under Contract':
+                    return f'🟢 {status}'     # Green circle
+                elif status == 'Off Market':
+                    return f'🟡 {status}'     # Yellow circle
+                else:
+                    return status
+            
+            display_df['primary_opportunity_status_label'] = display_df['primary_opportunity_status_label'].apply(format_status)
+        
+        # Rename columns for display - Property Name and Close.com Link are already named correctly
+        display_df = display_df.rename(columns={
+            'primary_opportunity_status_label': 'Status',
+            'custom.All_State': 'State',
+            'custom.All_County': 'County',
+            'custom.All_APN': 'APN',
+            'custom.All_Asset_Surveyed_Acres': 'Acres',
+            'primary_opportunity_value': 'Current Asking Price',
+            'custom.Asset_Cost_Basis': 'Cost Basis',
+            'current_margin': 'Profit Margin',
+            'current_margin_pct': 'Margin',
+            'markup_percentage': 'Markup',
+            'price_per_acre': 'Asking Price/Acre',
+            'cost_basis_per_acre': 'Cost Basis/Acre',
+            'custom.Asset_Original_Listing_Price': 'Original Listing Price',
+            'percent_of_initial_listing': '%OLP',
+            'days_held': 'Days Held',
+            'price_reductions': 'Price Reductions',
+            'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
+            'missing_information': 'Missing Information'
+        })
+        
+        # Display table with custom CSS for column alignment - UPDATED WITHOUT Lead Count
+        st.markdown("""
+        <style>
+        .dataframe th:nth-child(1), .dataframe td:nth-child(1) { text-align: left !important; }    /* Property Name */
+        .dataframe th:nth-child(2), .dataframe td:nth-child(2) { text-align: left !important; }    /* Status */
+        .dataframe th:nth-child(3), .dataframe td:nth-child(3) { text-align: left !important; }    /* State */
+        .dataframe th:nth-child(4), .dataframe td:nth-child(4) { text-align: left !important; }    /* County */
+        .dataframe th:nth-child(5), .dataframe td:nth-child(5) { text-align: left !important; }    /* APN */
+        .dataframe th:nth-child(6), .dataframe td:nth-child(6) { text-align: right !important; }   /* Acres */
+        .dataframe th:nth-child(7), .dataframe td:nth-child(7) { text-align: right !important; }   /* Current Asking Price */
+        .dataframe th:nth-child(8), .dataframe td:nth-child(8) { text-align: right !important; }   /* Cost Basis */
+        .dataframe th:nth-child(9), .dataframe td:nth-child(9) { text-align: right !important; }   /* Profit Margin */
+        .dataframe th:nth-child(10), .dataframe td:nth-child(10) { text-align: center !important; } /* Margin */
+        .dataframe th:nth-child(11), .dataframe td:nth-child(11) { text-align: center !important; } /* Markup */
+        .dataframe th:nth-child(12), .dataframe td:nth-child(12) { text-align: right !important; }  /* Asking Price/Acre */
+        .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Cost Basis/Acre */
+        .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: right !important; }  /* Original Listing Price */
+        .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* %OLP */
+        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* Days Held */
+        .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
+        .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Map Audit */
+        .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
+        </style>
+        """, unsafe_allow_html=True)
+        
+        st.dataframe(display_df, use_container_width=True, column_config={
+            "Close.com Link": st.column_config.LinkColumn(
+                "Close.com Link",
+                help="Click to open property in Close.com",
+                display_text="🔗 Open"
+            )
+        })
+        
+        # Add Inventory Report download button with timestamped filename
+        st.subheader("📊 Download Inventory Report")
+        if st.button("Generate Inventory Report", type="secondary"):
+            pdf_buffer = generate_inventory_report_pdf(filtered_df)
+            if pdf_buffer:
+                # Create timestamped filename: YYYYMMDD_HHMM_Inventory_Report.pdf
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+                filename = f"{timestamp}_Inventory_Report.pdf"
+                st.download_button(
+                    label="📥 Download Inventory Report",
+                    data=pdf_buffer,
+                    file_name=filename,
+                    mime="application/pdf"
+                )
+
+def main():
+    st.title("🏞️ Land Portfolio Analyzer")
+    st.markdown("### Hierarchical Analysis: Opportunity Status → State → County")
+    st.markdown("**Status Order**: Purchased → Listed → Under Contract → Off Market")
+    
+    uploaded_file = st.file_uploader("Upload your CRM CSV export", type=['csv'])
+    
+    if uploaded_file:
+        try:
+            df = pd.read_csv(uploaded_file)
+            st.success(f"✅ Loaded {len(df)} properties successfully!")
+            
+            # Process the data
+            processed_df = process_data(df)
+            
+            # Data Validation Warnings Section
+            st.subheader("⚠️ Data Validation Warnings")
+            
+            validation_issues = []
+            
+            # Check for missing or invalid Status
+            if 'primary_opportunity_status_label' in processed_df.columns:
+                valid_statuses = ['Purchased', 'Listed', 'Under Contract', 'Off Market']
+                invalid_status = processed_df[~processed_df['primary_opportunity_status_label'].isin(valid_statuses)]
+                if len(invalid_status) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Invalid/Missing Status',
+                        'Count': len(invalid_status),
+                        'Impact': 'These properties will NOT appear in any report section',
+                        'Fix Required': 'Set primary_opportunity_status_label to: Purchased, Listed, Under Contract, or Off Market'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Status Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO properties will appear in reports',
+                    'Fix Required': 'Add primary_opportunity_status_label column to CRM export'
+                })
+            
+            # Check for missing or invalid Listing Type
+            if 'custom.Asset_Listing_Type' in processed_df.columns:
+                valid_types = ['Primary', 'Secondary']
+                invalid_type = processed_df[~processed_df['custom.Asset_Listing_Type'].isin(valid_types)]
+                if len(invalid_type) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Invalid/Missing Listing Type',
+                        'Count': len(invalid_type),
+                        'Impact': 'These properties will NOT appear in any report section',
+                        'Fix Required': 'Set custom.Asset_Listing_Type to: Primary or Secondary'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Listing Type Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO properties will appear in reports',
+                    'Fix Required': 'Add custom.Asset_Listing_Type column to CRM export'
+                })
+            
+            # Check for missing Owner
+            if 'custom.Asset_Owner' in processed_df.columns:
+                missing_owner = processed_df[processed_df['custom.Asset_Owner'].isna() | (processed_df['custom.Asset_Owner'] == '')]
+                if len(missing_owner) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🟡 WARNING: Missing Owner',
+                        'Count': len(missing_owner),
+                        'Impact': 'These properties may be filtered out if owner filtering is used',
+                        'Fix Required': 'Set custom.Asset_Owner field in CRM'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🟡 WARNING: Missing Owner Column',
+                    'Count': len(processed_df),
+                    'Impact': 'Owner filtering will not work properly',
+                    'Fix Required': 'Add custom.Asset_Owner column to CRM export'
+                })
+            
+            # Check for missing or zero Cost Basis
+            if 'custom.Asset_Cost_Basis' in processed_df.columns:
+                missing_cost = processed_df[(processed_df['custom.Asset_Cost_Basis'].isna()) | (processed_df['custom.Asset_Cost_Basis'] == 0) | (processed_df['custom.Asset_Cost_Basis'] == '')]
+                if len(missing_cost) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Missing/Zero Cost Basis',
+                        'Count': len(missing_cost),
+                        'Impact': 'Financial calculations will be incorrect; properties marked incomplete',
+                        'Fix Required': 'Set custom.Asset_Cost_Basis to actual cost (values of $0 are treated as missing)'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Cost Basis Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO financial calculations possible',
+                    'Fix Required': 'Add custom.Asset_Cost_Basis column to CRM export'
+                })
+            
+            # Check for missing or zero Asking Price
+            if 'primary_opportunity_value' in processed_df.columns:
+                missing_price = processed_df[(processed_df['primary_opportunity_value'].isna()) | (processed_df['primary_opportunity_value'] <= 0) | (processed_df['primary_opportunity_value'] == '')]
+                if len(missing_price) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Missing/Zero Asking Price',
+                        'Count': len(missing_price),
+                        'Impact': 'Asking price MUST be greater than $0; these properties will have incorrect calculations',
+                        'Fix Required': 'Set primary_opportunity_value to actual asking price (must be > $0)'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Asking Price Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO financial calculations possible',
+                    'Fix Required': 'Add primary_opportunity_value column to CRM export'
+                })
+            
+            # Display validation results
+            if validation_issues:
+                # Check if there are any fatal issues
+                fatal_issues = [issue for issue in validation_issues if '🔴 FATAL' in issue['Issue Type']]
+                warning_issues = [issue for issue in validation_issues if '🟡 WARNING' in issue['Issue Type']]
+                
+                if fatal_issues:
+                    st.error(f"⛔ Found {len(fatal_issues)} FATAL issue(s) - Some properties will NOT appear in reports!")
+                    st.dataframe(pd.DataFrame(fatal_issues), use_container_width=True)
+                    
+                    # Show details of properties with fatal errors
+                    with st.expander("🔍 View Properties with Fatal Errors"):
+                        if 'primary_opportunity_status_label' in processed_df.columns:
+                            valid_statuses = ['Purchased', 'Listed', 'Under Contract', 'Off Market']
+                            invalid_status = processed_df[~processed_df['primary_opportunity_status_label'].isin(valid_statuses)]
+                            if len(invalid_status) > 0:
+                                st.write(f"**Properties with Invalid/Missing Status ({len(invalid_status)}):**")
+                                status_cols = ['display_name', 'primary_opportunity_status_label', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in status_cols if col in invalid_status.columns]
+                                st.dataframe(invalid_status[available_cols], use_container_width=True)
+                        
+                        if 'custom.Asset_Listing_Type' in processed_df.columns:
+                            valid_types = ['Primary', 'Secondary']
+                            invalid_type = processed_df[~processed_df['custom.Asset_Listing_Type'].isin(valid_types)]
+                            if len(invalid_type) > 0:
+                                st.write(f"**Properties with Invalid/Missing Listing Type ({len(invalid_type)}):**")
+                                type_cols = ['display_name', 'custom.Asset_Listing_Type', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in type_cols if col in invalid_type.columns]
+                                st.dataframe(invalid_type[available_cols], use_container_width=True)
+                        
+                        if 'custom.Asset_Cost_Basis' in processed_df.columns:
+                            missing_cost = processed_df[(processed_df['custom.Asset_Cost_Basis'].isna()) | (processed_df['custom.Asset_Cost_Basis'] == 0) | (processed_df['custom.Asset_Cost_Basis'] == '')]
+                            if len(missing_cost) > 0:
+                                st.write(f"**Properties with Missing/Zero Cost Basis ({len(missing_cost)}):**")
+                                cost_cols = ['display_name', 'custom.Asset_Cost_Basis', 'primary_opportunity_value', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in cost_cols if col in missing_cost.columns]
+                                st.dataframe(missing_cost[available_cols], use_container_width=True)
+                        
+                        if 'primary_opportunity_value' in processed_df.columns:
+                            missing_price = processed_df[(processed_df['primary_opportunity_value'].isna()) | (processed_df['primary_opportunity_value'] <= 0) | (processed_df['primary_opportunity_value'] == '')]
+                            if len(missing_price) > 0:
+                                st.write(f"**Properties with Missing/Zero Asking Price ({len(missing_price)}):**")
+                                price_cols = ['display_name', 'primary_opportunity_value', 'custom.Asset_Cost_Basis', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in price_cols if col in missing_price.columns]
+                                st.dataframe(missing_price[available_cols], use_container_width=True)
+                
+                if warning_issues:
+                    st.warning(f"⚠️ Found {len(warning_issues)} warning(s) - Review these issues")
+                    st.dataframe(pd.DataFrame(warning_issues), use_container_width=True)
+                    
+                    # Show details of properties with warnings
+                    with st.expander("🔍 View Properties with Warnings"):
+                        if 'custom.Asset_Owner' in processed_df.columns:
+                            missing_owner = processed_df[processed_df['custom.Asset_Owner'].isna() | (processed_df['custom.Asset_Owner'] == '')]
+                            if len(missing_owner) > 0:
+                                st.write(f"**Properties with Missing Owner ({len(missing_owner)}):**")
+                                owner_cols = ['display_name', 'custom.Asset_Owner', 'primary_opportunity_status_label', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in owner_cols if col in missing_owner.columns]
+                                st.dataframe(missing_owner[available_cols], use_container_width=True)
+                
+                if not fatal_issues and not warning_issues:
+                    st.success("✅ No validation issues found - All properties should appear correctly in reports!")
+            else:
+                st.success("✅ No validation issues found - All properties should appear correctly in reports!")
+            
+            st.divider()
+            
+            # Data Completeness Summary (moved to top)
+            if 'missing_information' in processed_df.columns:
+                st.subheader("📊 Data Completeness Summary")
+                complete_count = len(processed_df[processed_df['missing_information'] == '✅ Complete'])
+                incomplete_count = len(processed_df) - complete_count
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Complete Properties", f"{complete_count}/{len(processed_df)}")
+                with col2:
+                    completion_rate = (complete_count / len(processed_df)) * 100 if len(processed_df) > 0 else 0
+                    st.metric("Completion Rate", f"{completion_rate:.1f}%")
+                with col3:
+                    st.metric("Incomplete Properties", incomplete_count)
+                    
+                # Show most common missing fields
+                if incomplete_count > 0:
+                    st.write("**Most Common Missing Fields:**")
+                    incomplete_props = processed_df[processed_df['missing_information'] != '✅ Complete']
+                    missing_fields_list = []
+                    for missing_info in incomplete_props['missing_information']:
+                        if missing_info.startswith('❌ Missing: '):
+                            fields = missing_info.replace('❌ Missing: ', '').split(', ')
+                            missing_fields_list.extend(fields)
+                    
+                    if missing_fields_list:
+                        from collections import Counter
+                        field_counts = Counter(missing_fields_list)
+                        missing_summary = []
+                        for field, count in field_counts.most_common():
+                            percentage = (count / len(processed_df)) * 100
+                            missing_summary.append({
+                                'Missing Field': field,
+                                'Properties Missing': count,
+                                'Percentage': f"{percentage:.1f}%"
+                            })
+                        
+                        st.dataframe(pd.DataFrame(missing_summary), use_container_width=True)
+                
+                # Add PDF download button for missing fields checklist
+                st.subheader("📄 Download Missing Fields Checklist")
+                if st.button("Generate PDF Checklist", type="primary", key="checklist_top"):
+                    pdf_buffer = generate_missing_fields_checklist_pdf(processed_df)
+                    if pdf_buffer:
+                        st.download_button(
+                            label="📥 Download PDF Checklist",
+                            data=pdf_buffer,
+                            file_name=f"missing_fields_checklist_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf",
+                            key="download_checklist_top"
+                        )
+            
+            st.divider()
+            
+            # Owner filtering section
+            st.subheader("📋 Owner Filtering")
+            st.markdown("Select which owners to include in the analysis:")
+            
+            if 'custom.Asset_Owner' in processed_df.columns:
+                # Get unique owners, excluding NaN values
+                all_owners = processed_df['custom.Asset_Owner'].dropna().unique()
+                all_owners = sorted([owner for owner in all_owners if str(owner) != 'nan'])
+                
+                if len(all_owners) > 0:
+                    # Create columns for checkboxes (3 per row for better layout)
+                    cols_per_row = 3
+                    rows_needed = (len(all_owners) + cols_per_row - 1) // cols_per_row
+                    
+                    # Add "Select All" and "Deselect All" buttons
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        if st.button("✅ Select All Owners"):
+                            for owner in all_owners:
+                                st.session_state[f"owner_{owner}"] = True
+                    with col2:
+                        if st.button("❌ Deselect All Owners"):
+                            for owner in all_owners:
+                                st.session_state[f"owner_{owner}"] = False
+                    
+                    # Initialize session state for owners if not exists
+                    for owner in all_owners:
+                        if f"owner_{owner}" not in st.session_state:
+                            st.session_state[f"owner_{owner}"] = True  # Default to checked
+                    
+                    # Create checkboxes for each owner
+                    for i in range(rows_needed):
+                        cols = st.columns(cols_per_row)
+                        for j in range(cols_per_row):
+                            owner_index = i * cols_per_row + j
+                            if owner_index < len(all_owners):
+                                owner = all_owners[owner_index]
+                                owner_count = len(processed_df[processed_df['custom.Asset_Owner'] == owner])
+                                with cols[j]:
+                                    st.session_state[f"owner_{owner}"] = st.checkbox(
+                                        f"{owner} ({owner_count} properties)",
+                                        value=st.session_state[f"owner_{owner}"],
+                                        key=f"checkbox_owner_{owner}"
+                                    )
+                    
+                    # Filter data based on selected owners
+                    selected_owners = [owner for owner in all_owners if st.session_state.get(f"owner_{owner}", True)]
+                    
+                    if selected_owners:
+                        # Filter the dataframe to only include selected owners
+                        filtered_df = processed_df[processed_df['custom.Asset_Owner'].isin(selected_owners)]
+                        
+                        st.info(f"📊 Showing data for {len(selected_owners)} selected owner(s): {', '.join(selected_owners)}")
+                        st.info(f"🏠 Total properties in filtered view: {len(filtered_df)} of {len(processed_df)}")
+                    else:
+                        st.warning("⚠️ No owners selected. Please select at least one owner to view data.")
+                        st.stop()
+                else:
+                    st.warning("⚠️ No owner data found in the uploaded file.")
+                    filtered_df = processed_df
+            else:
+                st.warning("⚠️ Owner column (custom.Asset_Owner) not found in uploaded file.")
+                filtered_df = processed_df
+            
+            st.divider()
+            
+            # Main hierarchy analysis
+            display_hierarchy_breakdown(filtered_df)
+            
+            st.divider()
+            
+            # Visualizations
+            create_visualizations(filtered_df)
+            
+            st.divider()
+            
+            # Detailed tables with filtering
+            display_detailed_tables(filtered_df)
+            
+            # Raw data preview
+            with st.expander("🔍 Raw Data Preview"):
+                st.dataframe(filtered_df.head(10), use_container_width=True)
+                
+        except Exception as e:
+            st.error(f"Error processing file: {str(e)}")
+            st.write("Please check that your CSV file contains the expected columns.")
+    else:
+        st.info("👆 Upload your CSV file to begin analysis")
+        
+        st.markdown("""
+        ### Required Fields for Complete Data
+        - **APN** (custom.All_APN)
+        - **Surveyed Acres** (custom.All_Asset_Surveyed_Acres)
+        - **County** (custom.All_County)
+        - **RemarkableLand URL** (custom.All_RemarkableLand_URL)
+        - **State** (custom.All_State)
+        - **Cost Basis** (custom.Asset_Cost_Basis) - *Note: Values of $0 are considered missing*
+        - **Date Purchased** (custom.Asset_Date_Purchased)
+        - **Original Listing Price** (custom.Asset_Original_Listing_Price)
+        - **Land ID Internal URL** (custom.Asset_Land_ID_Internal_URL)
+        - **Land ID Share URL** (custom.Asset_Land_ID_Share_URL)
+        - **MLS#** (custom.Asset_MLS#)
+        - **MLS Listing Date** (custom.Asset_MLS_Listing_Date)
+        - **Last Map Audit** (custom.Asset_Last_Mapping_Audit)
+        - **Street Address** (custom.Asset_Street_Address)
+        - **Owner** (custom.Asset_Owner)
+        - **Listing Type** (custom.Asset_Listing_Type)
+        - **Avg One Time Active Opportunity Value** (avg_one_time_active_opportunity_value)
+        
+        **Note**: To use PDF generation, install reportlab: `pip install reportlab`
+        
+        ### Price Reduction System
+        Automatically calculated from trailing digit of current value:
+        - **9**: No reductions | **8**: 1 reduction | **7**: 2 reductions
+        - **6**: 3 reductions | **5**: 4 reductions | **4**: 5 reductions
+        - And so on...
+        """)
+
+if __name__ == "__main__":
+    main()
