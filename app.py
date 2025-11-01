@@ -888,11 +888,6 @@ def generate_inventory_report_pdf(df):
         story.append(summary_table)
         story.append(Spacer(1, 28))
     
-    # Add the explanatory note above the disclaimer using updated style (MOVED HERE)
-    explanatory_note = 'Note: "Listed (Secondary)" and "Off Market (Secondary)" are alternative MLS or acreage-size listings for properties included in their respective Primary categories above.'
-    story.append(Paragraph(explanatory_note, note_style))
-    story.append(Spacer(1, 20))
-    
     # Add Definitions section
     story.append(PageBreak())
     story.append(Paragraph("Definitions", section_style))
