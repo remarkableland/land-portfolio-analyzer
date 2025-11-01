@@ -436,6 +436,32 @@ def generate_inventory_report_pdf(df):
         rightIndent=20
     )
     
+    # Subsection style for definitions categories
+    subsection_style = ParagraphStyle(
+        'SubsectionStyle',
+        parent=styles['Normal'],
+        fontSize=11,
+        fontName='Helvetica-Bold',
+        textColor=colors.darkblue,
+        spaceAfter=6,
+        spaceBefore=0,
+        alignment=0,  # Left alignment
+        leftIndent=0
+    )
+    
+    # Normal style for definitions
+    normal_style = ParagraphStyle(
+        'NormalStyle',
+        parent=styles['Normal'],
+        fontSize=10,
+        fontName='Helvetica',
+        textColor=colors.black,
+        spaceAfter=4,
+        spaceBefore=0,
+        alignment=0,  # Left alignment
+        leftIndent=12
+    )
+    
     # Title and date
     story.append(Paragraph("Remarkable Land LLC - Inventory Report", title_style))
     story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", subtitle_style))
@@ -865,6 +891,99 @@ def generate_inventory_report_pdf(df):
     # Add the explanatory note above the disclaimer using updated style (MOVED HERE)
     explanatory_note = 'Note: "Listed (Secondary)" and "Off Market (Secondary)" are alternative MLS or acreage-size listings for properties included in their respective Primary categories above.'
     story.append(Paragraph(explanatory_note, note_style))
+    story.append(Spacer(1, 20))
+    
+    # Add Definitions section
+    story.append(PageBreak())
+    story.append(Paragraph("Definitions", section_style))
+    story.append(Spacer(1, 12))
+    
+    # Financial Terms
+    story.append(Paragraph("<b>Financial Terms</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    definitions_financial = [
+        "<b>Cost Basis</b> - Total acquisition cost including purchase price, closing costs, capital improvements, and capitalized holding costs.",
+        "<b>Current Price / Asking Price</b> - Current listed price for the property.",
+        "<b>Profit Margin</b> - Dollar amount of profit (Current Price - Cost Basis).",
+        "<b>Margin %</b> - Profit as a percentage of the asking price.",
+        "<b>Markup %</b> - Profit as a percentage of the cost basis.",
+        "<b>Price/Acre</b> - Current asking price divided by total acres.",
+        "<b>Cost/Acre</b> - Cost basis divided by total acres.",
+        "<b>Original Price / Original Listing Price</b> - Initial listing price when first brought to market.",
+        "<b>%OLP (Percent of Original Listing Price)</b> - Current price as a percentage of original listing price.",
+    ]
+    
+    for definition in definitions_financial:
+        story.append(Paragraph(definition, normal_style))
+        story.append(Spacer(1, 4))
+    
+    story.append(Spacer(1, 8))
+    
+    # Time & Status Terms
+    story.append(Paragraph("<b>Time & Status Terms</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    definitions_time = [
+        "<b>Days Held</b> - Total days from acquisition closing to today (or sale closing if sold).",
+        "<b>Average Days Held</b> - Mean of all Days Held values in the section.",
+        "<b>Median Days Held</b> - Middle value of all Days Held when sorted (less affected by outliers).",
+        "<b>Price Reductions</b> - Number of price reductions (tracked by trailing digit of current price).",
+    ]
+    
+    for definition in definitions_time:
+        story.append(Paragraph(definition, normal_style))
+        story.append(Spacer(1, 4))
+    
+    story.append(Spacer(1, 8))
+    
+    # Status Categories
+    story.append(Paragraph("<b>Status Categories</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    definitions_status = [
+        "<b>Purchased</b> - Property acquired but not yet listed for sale.",
+        "<b>Listed</b> - Property actively marketed for sale.",
+        "<b>Under Contract</b> - Property with executed purchase agreement, pending closing.",
+        "<b>Off Market</b> - Property temporarily removed from active marketing.",
+    ]
+    
+    for definition in definitions_status:
+        story.append(Paragraph(definition, normal_style))
+        story.append(Spacer(1, 4))
+    
+    story.append(Spacer(1, 8))
+    
+    # Listing Types
+    story.append(Paragraph("<b>Listing Types</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    definitions_listing = [
+        "<b>Primary</b> - Main listing or property designation.",
+        "<b>Secondary</b> - Alternative MLS listing or acreage-size variation of a primary property.",
+    ]
+    
+    for definition in definitions_listing:
+        story.append(Paragraph(definition, normal_style))
+        story.append(Spacer(1, 4))
+    
+    story.append(Spacer(1, 8))
+    
+    # Property Information
+    story.append(Paragraph("<b>Property Information</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    definitions_property = [
+        "<b>APN (Assessor's Parcel Number)</b> - Unique identifier assigned by county.",
+        "<b>Surveyed Acres</b> - Legally surveyed acreage of the property.",
+        "<b>Portfolio Margin %</b> - Overall profit margin for all properties in the section.",
+    ]
+    
+    for definition in definitions_property:
+        story.append(Paragraph(definition, normal_style))
+        story.append(Spacer(1, 4))
+    
+    story.append(Spacer(1, 20))
     
     # Add the disclaimer at the end using updated style
     disclaimer_text = "Disclaimer: This data is sourced from our CRM and not our accounting software, based on then-available data. Final accounting data and results may vary slightly."
