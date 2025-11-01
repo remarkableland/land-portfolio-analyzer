@@ -1353,18 +1353,6 @@ def display_detailed_tables(df):
             )
         })
         
-        # Add PDF download button for missing fields checklist
-        st.subheader("📄 Download Missing Fields Checklist")
-        if st.button("Generate PDF Checklist", type="primary"):
-            pdf_buffer = generate_missing_fields_checklist_pdf(filtered_df)
-            if pdf_buffer:
-                st.download_button(
-                    label="📥 Download PDF Checklist",
-                    data=pdf_buffer,
-                    file_name=f"missing_fields_checklist_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                    mime="application/pdf"
-                )
-        
         # Add Inventory Report download button with timestamped filename
         st.subheader("📊 Download Inventory Report")
         if st.button("Generate Inventory Report", type="secondary"):
@@ -1394,6 +1382,60 @@ def main():
             
             # Process the data
             processed_df = process_data(df)
+            
+            # Data Completeness Summary (moved to top)
+            if 'missing_information' in processed_df.columns:
+                st.subheader("📊 Data Completeness Summary")
+                complete_count = len(processed_df[processed_df['missing_information'] == '✅ Complete'])
+                incomplete_count = len(processed_df) - complete_count
+                
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Complete Properties", f"{complete_count}/{len(processed_df)}")
+                with col2:
+                    completion_rate = (complete_count / len(processed_df)) * 100 if len(processed_df) > 0 else 0
+                    st.metric("Completion Rate", f"{completion_rate:.1f}%")
+                with col3:
+                    st.metric("Incomplete Properties", incomplete_count)
+                    
+                # Show most common missing fields
+                if incomplete_count > 0:
+                    st.write("**Most Common Missing Fields:**")
+                    incomplete_props = processed_df[processed_df['missing_information'] != '✅ Complete']
+                    missing_fields_list = []
+                    for missing_info in incomplete_props['missing_information']:
+                        if missing_info.startswith('❌ Missing: '):
+                            fields = missing_info.replace('❌ Missing: ', '').split(', ')
+                            missing_fields_list.extend(fields)
+                    
+                    if missing_fields_list:
+                        from collections import Counter
+                        field_counts = Counter(missing_fields_list)
+                        missing_summary = []
+                        for field, count in field_counts.most_common():
+                            percentage = (count / len(processed_df)) * 100
+                            missing_summary.append({
+                                'Missing Field': field,
+                                'Properties Missing': count,
+                                'Percentage': f"{percentage:.1f}%"
+                            })
+                        
+                        st.dataframe(pd.DataFrame(missing_summary), use_container_width=True)
+                
+                # Add PDF download button for missing fields checklist
+                st.subheader("📄 Download Missing Fields Checklist")
+                if st.button("Generate PDF Checklist", type="primary", key="checklist_top"):
+                    pdf_buffer = generate_missing_fields_checklist_pdf(processed_df)
+                    if pdf_buffer:
+                        st.download_button(
+                            label="📥 Download PDF Checklist",
+                            data=pdf_buffer,
+                            file_name=f"missing_fields_checklist_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                            mime="application/pdf",
+                            key="download_checklist_top"
+                        )
+            
+            st.divider()
             
             # Owner filtering section
             st.subheader("📋 Owner Filtering")
@@ -1458,47 +1500,6 @@ def main():
             else:
                 st.warning("⚠️ Owner column (custom.Asset_Owner) not found in uploaded file.")
                 filtered_df = processed_df
-            
-            st.divider()
-            
-            # Data Completeness Summary (moved to top)
-            if 'missing_information' in filtered_df.columns:
-                st.subheader("📊 Data Completeness Summary")
-                complete_count = len(filtered_df[filtered_df['missing_information'] == '✅ Complete'])
-                incomplete_count = len(filtered_df) - complete_count
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Complete Properties", f"{complete_count}/{len(filtered_df)}")
-                with col2:
-                    completion_rate = (complete_count / len(filtered_df)) * 100 if len(filtered_df) > 0 else 0
-                    st.metric("Completion Rate", f"{completion_rate:.1f}%")
-                with col3:
-                    st.metric("Incomplete Properties", incomplete_count)
-                    
-                # Show most common missing fields
-                if incomplete_count > 0:
-                    st.write("**Most Common Missing Fields:**")
-                    incomplete_props = filtered_df[filtered_df['missing_information'] != '✅ Complete']
-                    missing_fields_list = []
-                    for missing_info in incomplete_props['missing_information']:
-                        if missing_info.startswith('❌ Missing: '):
-                            fields = missing_info.replace('❌ Missing: ', '').split(', ')
-                            missing_fields_list.extend(fields)
-                    
-                    if missing_fields_list:
-                        from collections import Counter
-                        field_counts = Counter(missing_fields_list)
-                        missing_summary = []
-                        for field, count in field_counts.most_common():
-                            percentage = (count / len(filtered_df)) * 100
-                            missing_summary.append({
-                                'Missing Field': field,
-                                'Properties Missing': count,
-                                'Percentage': f"{percentage:.1f}%"
-                            })
-                        
-                        st.dataframe(pd.DataFrame(missing_summary), use_container_width=True)
             
             st.divider()
             
