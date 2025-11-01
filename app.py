@@ -20,15 +20,17 @@ st.set_page_config(
     layout="wide"
 )
 
-def calculate_days_on_market(row):
-    """Calculate days on market from MLS listing date"""
+def calculate_days_held(row):
+    """Calculate days held from acquisition date to today (or sale date if sold)"""
     try:
-        listing_date = row.get('custom.Asset_MLS_Listing_Date')
-        if pd.isna(listing_date):
+        purchase_date = row.get('custom.Asset_Date_Purchased')
+        if pd.isna(purchase_date):
             return None
         
-        listing_dt = pd.to_datetime(listing_date)
-        return (datetime.now() - listing_dt).days
+        purchase_dt = pd.to_datetime(purchase_date)
+        
+        # For now, calculate to today (can be enhanced later to use sale date if available)
+        return (datetime.now() - purchase_dt).days
     except:
         return None
 
@@ -84,8 +86,8 @@ def process_data(df):
             processed_df['custom.All_County'] = processed_df['custom.All_County'].fillna('Unknown County')
             processed_df['custom.All_County'] = processed_df['custom.All_County'].astype(str).str.title()
         
-        # Calculate days on market first
-        processed_df['days_on_market'] = processed_df.apply(calculate_days_on_market, axis=1)
+        # Calculate days held first
+        processed_df['days_held'] = processed_df.apply(calculate_days_held, axis=1)
         
         # Convert key numeric columns to ensure proper data types
         numeric_columns = [
@@ -188,7 +190,7 @@ def process_data(df):
         st.error(f"Error in process_data: {str(e)}")
         # Return basic dataframe with minimal processing
         basic_df = df.copy()
-        basic_df['days_on_market'] = None
+        basic_df['days_held'] = None
         basic_df['price_reductions'] = 0
         basic_df['current_margin'] = 0
         basic_df['current_margin_pct'] = 0
@@ -244,7 +246,7 @@ def display_hierarchy_breakdown(df):
                     'Status': status,
                     'Properties': len(status_df),
                     'Total Value': f"${status_df['primary_opportunity_value'].sum():,.0f}" if 'primary_opportunity_value' in df.columns else 'N/A',
-                    'Avg DOM': f"{status_df['days_on_market'].mean():.0f}" if 'days_on_market' in status_df.columns and status_df['days_on_market'].notna().any() else 'N/A',
+                    'Avg Days Held': f"{status_df['days_held'].mean():.0f}" if 'days_held' in status_df.columns and status_df['days_held'].notna().any() else 'N/A',
                     'Avg Reductions': f"{status_df['price_reductions'].mean():.1f}" if 'price_reductions' in status_df.columns and status_df['price_reductions'].notna().any() else 'N/A'
                 }
                 status_summary.append(summary)
@@ -486,7 +488,7 @@ def generate_inventory_report_pdf(df):
             'Date Purchased', 'Cost Basis', 'Current Price', 
             'Profit Margin', 'Margin %', 'Markup %', 
             'Price/Acre', 'Cost/Acre', 'Original Price', 
-            '%OLP', 'DOM'
+            '%OLP', 'Days Held'
         ]
         table_data.append(headers)
         
@@ -520,7 +522,7 @@ def generate_inventory_report_pdf(df):
             cost_per_acre = f"${row.get('cost_basis_per_acre', 0):,.0f}" if pd.notna(row.get('cost_basis_per_acre')) and row.get('cost_basis_per_acre', 0) > 0 else 'N/A'
             original_price = f"${row.get('custom.Asset_Original_Listing_Price', 0):,.0f}" if pd.notna(row.get('custom.Asset_Original_Listing_Price')) and row.get('custom.Asset_Original_Listing_Price', 0) > 0 else 'N/A'
             percent_olp = f"{row.get('percent_of_initial_listing', 0):.0f}%" if pd.notna(row.get('percent_of_initial_listing')) else 'N/A'
-            dom = f"{row.get('days_on_market', 0):.0f}" if pd.notna(row.get('days_on_market')) else 'N/A'
+            days_held_val = f"{row.get('days_held', 0):.0f}" if pd.notna(row.get('days_held')) else 'N/A'
             
             # Create table row with Paragraph objects for proper text wrapping
             table_data.append([
@@ -539,7 +541,7 @@ def generate_inventory_report_pdf(df):
                 Paragraph(cost_per_acre, styles['Normal']),
                 Paragraph(original_price, styles['Normal']),
                 Paragraph(percent_olp, styles['Normal']),
-                Paragraph(dom, styles['Normal'])
+                Paragraph(days_held_val, styles['Normal'])
             ])
         
         if len(table_data) > 1:  # Only create table if there's data beyond headers
@@ -610,14 +612,14 @@ def generate_inventory_report_pdf(df):
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
         
         # Calculate average DOM
-        avg_dom = section_df['days_on_market'].mean() if 'days_on_market' in section_df.columns and section_df['days_on_market'].notna().any() else 0
-        avg_dom_str = f"{avg_dom:.0f}" if pd.notna(avg_dom) and avg_dom > 0 else "N/A"
+        avg_days_held = section_df['days_held'].mean() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
+        avg_days_held_str = f"{avg_days_held:.0f}" if pd.notna(avg_days_held) and avg_days_held > 0 else "N/A"
         
         # Create 2x3 table layout
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Average DOM', avg_dom_str, 'Total Profit Margin', f'${total_margin:,.0f}']
+            ['Average DOM', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
@@ -694,7 +696,7 @@ def generate_inventory_report_pdf(df):
             'Date Purchased', 'Cost Basis', 'Current Price', 
             'Profit Margin', 'Margin %', 'Markup %', 
             'Price/Acre', 'Cost/Acre', 'Original Price', 
-            '%OLP', 'DOM'
+            '%OLP', 'Days Held'
         ]
         table_data.append(headers)
         
@@ -728,7 +730,7 @@ def generate_inventory_report_pdf(df):
             cost_per_acre = f"${row.get('cost_basis_per_acre', 0):,.0f}" if pd.notna(row.get('cost_basis_per_acre')) and row.get('cost_basis_per_acre', 0) > 0 else 'N/A'
             original_price = f"${row.get('custom.Asset_Original_Listing_Price', 0):,.0f}" if pd.notna(row.get('custom.Asset_Original_Listing_Price')) and row.get('custom.Asset_Original_Listing_Price', 0) > 0 else 'N/A'
             percent_olp = f"{row.get('percent_of_initial_listing', 0):.0f}%" if pd.notna(row.get('percent_of_initial_listing')) else 'N/A'
-            dom = f"{row.get('days_on_market', 0):.0f}" if pd.notna(row.get('days_on_market')) else 'N/A'
+            days_held_val = f"{row.get('days_held', 0):.0f}" if pd.notna(row.get('days_held')) else 'N/A'
             
             # Create table row with Paragraph objects for proper text wrapping
             table_data.append([
@@ -747,7 +749,7 @@ def generate_inventory_report_pdf(df):
                 Paragraph(cost_per_acre, styles['Normal']),
                 Paragraph(original_price, styles['Normal']),
                 Paragraph(percent_olp, styles['Normal']),
-                Paragraph(dom, styles['Normal'])
+                Paragraph(days_held_val, styles['Normal'])
             ])
         
         if len(table_data) > 1:  # Only create table if there's data beyond headers
@@ -818,14 +820,14 @@ def generate_inventory_report_pdf(df):
         margin_pct = (total_margin / total_asking * 100) if total_asking > 0 else 0
         
         # Calculate average DOM
-        avg_dom = section_df['days_on_market'].mean() if 'days_on_market' in section_df.columns and section_df['days_on_market'].notna().any() else 0
-        avg_dom_str = f"{avg_dom:.0f}" if pd.notna(avg_dom) and avg_dom > 0 else "N/A"
+        avg_days_held = section_df['days_held'].mean() if 'days_held' in section_df.columns and section_df['days_held'].notna().any() else 0
+        avg_days_held_str = f"{avg_days_held:.0f}" if pd.notna(avg_days_held) and avg_days_held > 0 else "N/A"
         
         # Create 2x3 table layout
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Average DOM', avg_dom_str, 'Total Profit Margin', f'${total_margin:,.0f}']
+            ['Average DOM', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
@@ -1168,7 +1170,7 @@ def display_detailed_tables(df):
         'cost_basis_per_acre',                  # Cost Basis/Acre (Right)
         'custom.Asset_Original_Listing_Price',  # Original Listing Price (Right)
         'percent_of_initial_listing',           # %OLP (Center)
-        'days_on_market',                       # DOM (Center)
+        'days_held',                       # Days Held (Center)
         'price_reductions',                     # Price Reductions (Center)
         'custom.Asset_Last_Mapping_Audit',     # Last Mapping Audit (Center)
         'missing_information'                   # Missing Information (Left)
@@ -1247,13 +1249,13 @@ def display_detailed_tables(df):
         if 'current_margin_pct' in display_df.columns:
             display_df['current_margin_pct'] = display_df['current_margin_pct'].apply(lambda x: f"{x:.0f}%" if pd.notna(x) else "N/A")
         
-        # Format numeric columns (including rounded DOM)
+        # Format numeric columns (including rounded Days Held)
         if 'custom.All_Asset_Surveyed_Acres' in display_df.columns:
             display_df['custom.All_Asset_Surveyed_Acres'] = display_df['custom.All_Asset_Surveyed_Acres'].apply(lambda x: f"{x:.1f}" if pd.notna(x) else "N/A")
         
-        # Format DOM with no decimals (rounded to whole days)
-        if 'days_on_market' in display_df.columns:
-            display_df['days_on_market'] = display_df['days_on_market'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
+        # Format Days Held with no decimals (rounded to whole days)
+        if 'days_held' in display_df.columns:
+            display_df['days_held'] = display_df['days_held'].apply(lambda x: f"{x:.0f}" if pd.notna(x) else "N/A")
         
         # Format price reductions with dash for none, lowercase x for reductions
         if 'price_reductions' in display_df.columns:
@@ -1314,7 +1316,7 @@ def display_detailed_tables(df):
             'cost_basis_per_acre': 'Cost Basis/Acre',
             'custom.Asset_Original_Listing_Price': 'Original Listing Price',
             'percent_of_initial_listing': '%OLP',
-            'days_on_market': 'DOM',
+            'days_held': 'Days Held',
             'price_reductions': 'Price Reductions',
             'custom.Asset_Last_Mapping_Audit': 'Last Map Audit',
             'missing_information': 'Missing Information'
@@ -1338,7 +1340,7 @@ def display_detailed_tables(df):
         .dataframe th:nth-child(13), .dataframe td:nth-child(13) { text-align: right !important; }  /* Cost Basis/Acre */
         .dataframe th:nth-child(14), .dataframe td:nth-child(14) { text-align: right !important; }  /* Original Listing Price */
         .dataframe th:nth-child(15), .dataframe td:nth-child(15) { text-align: center !important; } /* %OLP */
-        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* DOM */
+        .dataframe th:nth-child(16), .dataframe td:nth-child(16) { text-align: center !important; } /* Days Held */
         .dataframe th:nth-child(17), .dataframe td:nth-child(17) { text-align: center !important; } /* Price Reductions */
         .dataframe th:nth-child(18), .dataframe td:nth-child(18) { text-align: center !important; } /* Last Map Audit */
         .dataframe th:nth-child(19), .dataframe td:nth-child(19) { text-align: left !important; }   /* Missing Information */
