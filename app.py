@@ -1383,6 +1383,108 @@ def main():
             # Process the data
             processed_df = process_data(df)
             
+            # Data Validation Warnings Section
+            st.subheader("⚠️ Data Validation Warnings")
+            
+            validation_issues = []
+            
+            # Check for missing or invalid Status
+            if 'primary_opportunity_status_label' in processed_df.columns:
+                valid_statuses = ['Purchased', 'Listed', 'Under Contract', 'Off Market']
+                invalid_status = processed_df[~processed_df['primary_opportunity_status_label'].isin(valid_statuses)]
+                if len(invalid_status) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Invalid/Missing Status',
+                        'Count': len(invalid_status),
+                        'Impact': 'These properties will NOT appear in any report section',
+                        'Fix Required': 'Set primary_opportunity_status_label to: Purchased, Listed, Under Contract, or Off Market'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Status Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO properties will appear in reports',
+                    'Fix Required': 'Add primary_opportunity_status_label column to CRM export'
+                })
+            
+            # Check for missing or invalid Listing Type
+            if 'custom.Asset_Listing_Type' in processed_df.columns:
+                valid_types = ['Primary', 'Secondary']
+                invalid_type = processed_df[~processed_df['custom.Asset_Listing_Type'].isin(valid_types)]
+                if len(invalid_type) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🔴 FATAL: Invalid/Missing Listing Type',
+                        'Count': len(invalid_type),
+                        'Impact': 'These properties will NOT appear in any report section',
+                        'Fix Required': 'Set custom.Asset_Listing_Type to: Primary or Secondary'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🔴 FATAL: Missing Listing Type Column',
+                    'Count': len(processed_df),
+                    'Impact': 'NO properties will appear in reports',
+                    'Fix Required': 'Add custom.Asset_Listing_Type column to CRM export'
+                })
+            
+            # Check for missing Owner
+            if 'custom.Asset_Owner' in processed_df.columns:
+                missing_owner = processed_df[processed_df['custom.Asset_Owner'].isna() | (processed_df['custom.Asset_Owner'] == '')]
+                if len(missing_owner) > 0:
+                    validation_issues.append({
+                        'Issue Type': '🟡 WARNING: Missing Owner',
+                        'Count': len(missing_owner),
+                        'Impact': 'These properties may be filtered out if owner filtering is used',
+                        'Fix Required': 'Set custom.Asset_Owner field in CRM'
+                    })
+            else:
+                validation_issues.append({
+                    'Issue Type': '🟡 WARNING: Missing Owner Column',
+                    'Count': len(processed_df),
+                    'Impact': 'Owner filtering will not work properly',
+                    'Fix Required': 'Add custom.Asset_Owner column to CRM export'
+                })
+            
+            # Display validation results
+            if validation_issues:
+                # Check if there are any fatal issues
+                fatal_issues = [issue for issue in validation_issues if '🔴 FATAL' in issue['Issue Type']]
+                warning_issues = [issue for issue in validation_issues if '🟡 WARNING' in issue['Issue Type']]
+                
+                if fatal_issues:
+                    st.error(f"⛔ Found {len(fatal_issues)} FATAL issue(s) - Some properties will NOT appear in reports!")
+                    st.dataframe(pd.DataFrame(fatal_issues), use_container_width=True)
+                    
+                    # Show details of properties with fatal errors
+                    with st.expander("🔍 View Properties with Fatal Errors"):
+                        if 'primary_opportunity_status_label' in processed_df.columns:
+                            valid_statuses = ['Purchased', 'Listed', 'Under Contract', 'Off Market']
+                            invalid_status = processed_df[~processed_df['primary_opportunity_status_label'].isin(valid_statuses)]
+                            if len(invalid_status) > 0:
+                                st.write(f"**Properties with Invalid/Missing Status ({len(invalid_status)}):**")
+                                status_cols = ['display_name', 'primary_opportunity_status_label', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in status_cols if col in invalid_status.columns]
+                                st.dataframe(invalid_status[available_cols], use_container_width=True)
+                        
+                        if 'custom.Asset_Listing_Type' in processed_df.columns:
+                            valid_types = ['Primary', 'Secondary']
+                            invalid_type = processed_df[~processed_df['custom.Asset_Listing_Type'].isin(valid_types)]
+                            if len(invalid_type) > 0:
+                                st.write(f"**Properties with Invalid/Missing Listing Type ({len(invalid_type)}):**")
+                                type_cols = ['display_name', 'custom.Asset_Listing_Type', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in type_cols if col in invalid_type.columns]
+                                st.dataframe(invalid_type[available_cols], use_container_width=True)
+                
+                if warning_issues:
+                    st.warning(f"⚠️ Found {len(warning_issues)} warning(s) - Review these issues")
+                    st.dataframe(pd.DataFrame(warning_issues), use_container_width=True)
+                
+                if not fatal_issues and not warning_issues:
+                    st.success("✅ No validation issues found - All properties should appear correctly in reports!")
+            else:
+                st.success("✅ No validation issues found - All properties should appear correctly in reports!")
+            
+            st.divider()
+            
             # Data Completeness Summary (moved to top)
             if 'missing_information' in processed_df.columns:
                 st.subheader("📊 Data Completeness Summary")
