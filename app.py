@@ -893,7 +893,7 @@ def generate_inventory_report_pdf(df):
     story.append(Paragraph("Definitions", section_style))
     story.append(Spacer(1, 12))
     
-    # Create all definitions in a consistent two-column table format
+    # Create all definitions in a consistent two-column table format with wider columns
     definitions_data = [
         # Column headers
         [Paragraph("<b>FINANCIAL TERMS</b>", subsection_style), ''],
@@ -942,18 +942,18 @@ def generate_inventory_report_pdf(df):
          Paragraph("<b>Portfolio Margin %</b> - Overall profit margin for all properties in the section.", normal_style)],
     ]
     
-    # Create table with consistent formatting
-    definitions_table = Table(definitions_data, colWidths=[3.6*inch, 3.6*inch])
+    # Create table with wider columns and reduced padding
+    definitions_table = Table(definitions_data, colWidths=[3.85*inch, 3.85*inch])
     definitions_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('GRID', (0, 0), (-1, -1), 0, colors.white),  # No borders
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
         # Span section headers across both columns
         ('SPAN', (0, 0), (1, 0)),   # FINANCIAL TERMS
         ('SPAN', (0, 7), (1, 7)),   # TIME & STATUS TERMS
@@ -961,7 +961,7 @@ def generate_inventory_report_pdf(df):
     ]))
     
     story.append(definitions_table)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 12))
     
     story.append(Spacer(1, 20))
     
