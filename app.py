@@ -893,95 +893,75 @@ def generate_inventory_report_pdf(df):
     story.append(Paragraph("Definitions", section_style))
     story.append(Spacer(1, 12))
     
-    # Create all definitions as a two-column table for space efficiency
+    # Create definitions in a compact two-column format without visible borders
     definitions_data = [
-        # Header row
-        [Paragraph("<b>Term</b>", subsection_style), Paragraph("<b>Definition</b>", subsection_style)],
+        # Financial Terms section
+        [Paragraph("<b>FINANCIAL TERMS</b>", subsection_style), ''],
+        [Paragraph("<b>Cost Basis</b> - Total acquisition cost including purchase price, closing costs, capital improvements, and capitalized holding costs.", normal_style), 
+         Paragraph("<b>Markup %</b> - Profit as a percentage of the cost basis.", normal_style)],
+        [Paragraph("<b>Current Price / Asking Price</b> - Current listed price for the property.", normal_style),
+         Paragraph("<b>Price/Acre</b> - Current asking price divided by total acres.", normal_style)],
+        [Paragraph("<b>Profit Margin</b> - Dollar amount of profit (Current Price - Cost Basis).", normal_style),
+         Paragraph("<b>Cost/Acre</b> - Cost basis divided by total acres.", normal_style)],
+        [Paragraph("<b>Margin %</b> - Profit as a percentage of the asking price.", normal_style),
+         Paragraph("<b>Original Price / Original Listing Price</b> - Initial listing price when first brought to market.", normal_style)],
+        [Paragraph("<b>%OLP (Percent of Original Listing Price)</b> - Current price as a percentage of original listing price.", normal_style), ''],
         
-        # Financial Terms section header
-        [Paragraph("<b>Financial Terms</b>", subsection_style), ''],
+        # Spacing row
+        ['', ''],
         
-        # Financial Terms
-        [Paragraph("<b>Cost Basis</b>", normal_style), Paragraph("Total acquisition cost including purchase price, closing costs, capital improvements, and capitalized holding costs.", normal_style)],
-        [Paragraph("<b>Current Price / Asking Price</b>", normal_style), Paragraph("Current listed price for the property.", normal_style)],
-        [Paragraph("<b>Profit Margin</b>", normal_style), Paragraph("Dollar amount of profit (Current Price - Cost Basis).", normal_style)],
-        [Paragraph("<b>Margin %</b>", normal_style), Paragraph("Profit as a percentage of the asking price.", normal_style)],
-        [Paragraph("<b>Markup %</b>", normal_style), Paragraph("Profit as a percentage of the cost basis.", normal_style)],
-        [Paragraph("<b>Price/Acre</b>", normal_style), Paragraph("Current asking price divided by total acres.", normal_style)],
-        [Paragraph("<b>Cost/Acre</b>", normal_style), Paragraph("Cost basis divided by total acres.", normal_style)],
-        [Paragraph("<b>Original Price / Original Listing Price</b>", normal_style), Paragraph("Initial listing price when first brought to market.", normal_style)],
-        [Paragraph("<b>%OLP (Percent of Original Listing Price)</b>", normal_style), Paragraph("Current price as a percentage of original listing price.", normal_style)],
+        # Time & Status Terms section
+        [Paragraph("<b>TIME & STATUS TERMS</b>", subsection_style), ''],
+        [Paragraph("<b>Days Held</b> - Total days from acquisition closing to today (or sale closing if sold).", normal_style),
+         Paragraph("<b>Median Days Held</b> - Middle value of all Days Held when sorted (less affected by outliers).", normal_style)],
+        [Paragraph("<b>Average Days Held</b> - Mean of all Days Held values in the section.", normal_style),
+         Paragraph("<b>Price Reductions</b> - Number of price reductions (tracked by trailing digit of current price).", normal_style)],
         
-        # Time & Status Terms section header
-        ['', ''],  # Empty row for spacing
-        [Paragraph("<b>Time & Status Terms</b>", subsection_style), ''],
+        # Spacing row
+        ['', ''],
         
-        # Time & Status Terms
-        [Paragraph("<b>Days Held</b>", normal_style), Paragraph("Total days from acquisition closing to today (or sale closing if sold).", normal_style)],
-        [Paragraph("<b>Average Days Held</b>", normal_style), Paragraph("Mean of all Days Held values in the section.", normal_style)],
-        [Paragraph("<b>Median Days Held</b>", normal_style), Paragraph("Middle value of all Days Held when sorted (less affected by outliers).", normal_style)],
-        [Paragraph("<b>Price Reductions</b>", normal_style), Paragraph("Number of price reductions (tracked by trailing digit of current price).", normal_style)],
+        # Status Categories section
+        [Paragraph("<b>STATUS CATEGORIES</b>", subsection_style), ''],
+        [Paragraph("<b>Purchased</b> - Property acquired but not yet listed for sale.", normal_style),
+         Paragraph("<b>Under Contract</b> - Property with executed purchase agreement, pending closing.", normal_style)],
+        [Paragraph("<b>Listed</b> - Property actively marketed for sale.", normal_style),
+         Paragraph("<b>Off Market</b> - Property temporarily removed from active marketing.", normal_style)],
         
-        # Status Categories section header
-        ['', ''],  # Empty row for spacing
-        [Paragraph("<b>Status Categories</b>", subsection_style), ''],
+        # Spacing row
+        ['', ''],
         
-        # Status Categories
-        [Paragraph("<b>Purchased</b>", normal_style), Paragraph("Property acquired but not yet listed for sale.", normal_style)],
-        [Paragraph("<b>Listed</b>", normal_style), Paragraph("Property actively marketed for sale.", normal_style)],
-        [Paragraph("<b>Under Contract</b>", normal_style), Paragraph("Property with executed purchase agreement, pending closing.", normal_style)],
-        [Paragraph("<b>Off Market</b>", normal_style), Paragraph("Property temporarily removed from active marketing.", normal_style)],
-        
-        # Listing Types section header
-        ['', ''],  # Empty row for spacing
-        [Paragraph("<b>Listing Types</b>", subsection_style), ''],
-        
-        # Listing Types
-        [Paragraph("<b>Primary</b>", normal_style), Paragraph("Main listing or property designation.", normal_style)],
-        [Paragraph("<b>Secondary</b>", normal_style), Paragraph("Alternative MLS listing or acreage-size variation of a primary property.", normal_style)],
-        
-        # Property Information section header
-        ['', ''],  # Empty row for spacing
-        [Paragraph("<b>Property Information</b>", subsection_style), ''],
-        
-        # Property Information
-        [Paragraph("<b>APN (Assessor's Parcel Number)</b>", normal_style), Paragraph("Unique identifier assigned by county.", normal_style)],
-        [Paragraph("<b>Surveyed Acres</b>", normal_style), Paragraph("Legally surveyed acreage of the property.", normal_style)],
-        [Paragraph("<b>Portfolio Margin %</b>", normal_style), Paragraph("Overall profit margin for all properties in the section.", normal_style)],
+        # Listing Types and Property Information combined
+        [Paragraph("<b>LISTING TYPES</b>", subsection_style), Paragraph("<b>PROPERTY INFORMATION</b>", subsection_style)],
+        [Paragraph("<b>Primary</b> - Main listing or property designation.", normal_style),
+         Paragraph("<b>APN (Assessor's Parcel Number)</b> - Unique identifier assigned by county.", normal_style)],
+        [Paragraph("<b>Secondary</b> - Alternative MLS listing or acreage-size variation of a primary property.", normal_style),
+         Paragraph("<b>Surveyed Acres</b> - Legally surveyed acreage of the property.", normal_style)],
+        ['',
+         Paragraph("<b>Portfolio Margin %</b> - Overall profit margin for all properties in the section.", normal_style)],
     ]
     
-    # Create the definitions table with appropriate column widths
-    definitions_table = Table(definitions_data, colWidths=[2.2*inch, 5.0*inch])
+    # Create the definitions table with no visible borders
+    definitions_table = Table(definitions_data, colWidths=[3.6*inch, 3.6*inch])
     definitions_table.setStyle(TableStyle([
-        # Header row styling
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightblue),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('ALIGN', (0, 0), (-1, 0), 'LEFT'),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-        
-        # Section headers (Financial Terms, Time & Status, etc.)
-        ('BACKGROUND', (0, 2), (0, 2), colors.HexColor('#E0E0E0')),
-        ('BACKGROUND', (0, 13), (0, 13), colors.HexColor('#E0E0E0')),
-        ('BACKGROUND', (0, 19), (0, 19), colors.HexColor('#E0E0E0')),
-        ('BACKGROUND', (0, 25), (0, 25), colors.HexColor('#E0E0E0')),
-        ('BACKGROUND', (0, 29), (0, 29), colors.HexColor('#E0E0E0')),
-        ('SPAN', (0, 2), (1, 2)),
-        ('SPAN', (0, 13), (1, 13)),
-        ('SPAN', (0, 19), (1, 19)),
-        ('SPAN', (0, 25), (1, 25)),
-        ('SPAN', (0, 29), (1, 29)),
-        
-        # General table styling
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
-        ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+        # Section headers styling (bold, slightly larger)
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('TOPPADDING', (0, 1), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        
+        # NO GRID - remove all borders
+        ('GRID', (0, 0), (-1, -1), 0, colors.white),
+        
+        # Minimal padding for compact layout
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        
+        # Make section headers span both columns where appropriate
+        ('SPAN', (0, 0), (1, 0)),  # FINANCIAL TERMS
+        ('SPAN', (0, 7), (1, 7)),  # TIME & STATUS TERMS
+        ('SPAN', (0, 11), (1, 11)),  # STATUS CATEGORIES
     ]))
     
     story.append(definitions_table)
