@@ -1477,6 +1477,16 @@ def main():
                 if warning_issues:
                     st.warning(f"⚠️ Found {len(warning_issues)} warning(s) - Review these issues")
                     st.dataframe(pd.DataFrame(warning_issues), use_container_width=True)
+                    
+                    # Show details of properties with warnings
+                    with st.expander("🔍 View Properties with Warnings"):
+                        if 'custom.Asset_Owner' in processed_df.columns:
+                            missing_owner = processed_df[processed_df['custom.Asset_Owner'].isna() | (processed_df['custom.Asset_Owner'] == '')]
+                            if len(missing_owner) > 0:
+                                st.write(f"**Properties with Missing Owner ({len(missing_owner)}):**")
+                                owner_cols = ['display_name', 'custom.Asset_Owner', 'primary_opportunity_status_label', 'custom.All_State', 'custom.All_County']
+                                available_cols = [col for col in owner_cols if col in missing_owner.columns]
+                                st.dataframe(missing_owner[available_cols], use_container_width=True)
                 
                 if not fatal_issues and not warning_issues:
                     st.success("✅ No validation issues found - All properties should appear correctly in reports!")
