@@ -619,7 +619,7 @@ def generate_inventory_report_pdf(df):
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Average DOM', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
+            ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
@@ -827,7 +827,7 @@ def generate_inventory_report_pdf(df):
         summary_data = [
             ['Properties', f'{section_count_props}', 'Total Asking Price', f'${total_asking:,.0f}'],
             ['Portfolio Margin %', f'{margin_pct:.1f}%', 'Total Cost Basis', f'${total_cost:,.0f}'],
-            ['Average DOM', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
+            ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}']
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
