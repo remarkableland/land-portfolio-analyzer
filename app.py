@@ -630,7 +630,6 @@ def generate_inventory_report_pdf(df):
             ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}'],
             ['Median Days Held', median_days_held_str, 'Portfolio Margin %', f'{margin_pct:.1f}%']
         ]
-        ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
         summary_table.setStyle(TableStyle([
@@ -847,7 +846,6 @@ def generate_inventory_report_pdf(df):
             ['Total Acres', total_acres_str, 'Total Cost Basis', f'${total_cost:,.0f}'],
             ['Average Days Held', avg_days_held_str, 'Total Profit Margin', f'${total_margin:,.0f}'],
             ['Median Days Held', median_days_held_str, 'Portfolio Margin %', f'{margin_pct:.1f}%']
-        ]
         ]
         
         summary_table = Table(summary_data, colWidths=[1.8*inch, 1.5*inch, 1.8*inch, 1.5*inch])
