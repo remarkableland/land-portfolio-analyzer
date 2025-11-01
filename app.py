@@ -893,45 +893,64 @@ def generate_inventory_report_pdf(df):
     story.append(Paragraph("Definitions", section_style))
     story.append(Spacer(1, 12))
     
-    # Create definitions in a compact two-column format without visible borders
-    definitions_data = [
-        # Financial Terms section
-        [Paragraph("<b>FINANCIAL TERMS</b>", subsection_style), ''],
-        [Paragraph("<b>Cost Basis</b> - Total acquisition cost including purchase price, closing costs, capital improvements, and capitalized holding costs.", normal_style), 
-         Paragraph("<b>Markup %</b> - Profit as a percentage of the cost basis.", normal_style)],
-        [Paragraph("<b>Current Price / Asking Price</b> - Current listed price for the property.", normal_style),
-         Paragraph("<b>Price/Acre</b> - Current asking price divided by total acres.", normal_style)],
-        [Paragraph("<b>Profit Margin</b> - Dollar amount of profit (Current Price - Cost Basis).", normal_style),
-         Paragraph("<b>Cost/Acre</b> - Cost basis divided by total acres.", normal_style)],
-        [Paragraph("<b>Margin %</b> - Profit as a percentage of the asking price.", normal_style),
-         Paragraph("<b>Original Price / Original Listing Price</b> - Initial listing price when first brought to market.", normal_style)],
-        [Paragraph("<b>%OLP (Percent of Original Listing Price)</b> - Current price as a percentage of original listing price.", normal_style), ''],
-        
-        # Spacing row
-        ['', ''],
-        
-        # Time & Status Terms section
-        [Paragraph("<b>TIME & STATUS TERMS</b>", subsection_style), ''],
-        [Paragraph("<b>Days Held</b> - Total days from acquisition closing to today (or sale closing if sold).", normal_style),
-         Paragraph("<b>Median Days Held</b> - Middle value of all Days Held when sorted (less affected by outliers).", normal_style)],
-        [Paragraph("<b>Average Days Held</b> - Mean of all Days Held values in the section.", normal_style),
-         Paragraph("<b>Price Reductions</b> - Number of price reductions (tracked by trailing digit of current price).", normal_style)],
-        
-        # Spacing row
-        ['', ''],
-        
-        # Status Categories section
-        [Paragraph("<b>STATUS CATEGORIES</b>", subsection_style), ''],
-        [Paragraph("<b>Purchased</b> - Property acquired but not yet listed for sale.", normal_style),
-         Paragraph("<b>Under Contract</b> - Property with executed purchase agreement, pending closing.", normal_style)],
-        [Paragraph("<b>Listed</b> - Property actively marketed for sale.", normal_style),
-         Paragraph("<b>Off Market</b> - Property temporarily removed from active marketing.", normal_style)],
-        
-        # Spacing row
-        ['', ''],
-        
-        # Listing Types and Property Information combined
+    # Create definitions with clean left-aligned formatting (no table)
+    
+    # Financial Terms
+    story.append(Paragraph("<b>FINANCIAL TERMS</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    story.append(Paragraph("<b>Cost Basis</b> - Total acquisition cost including purchase price, closing costs, capital improvements, and capitalized holding costs.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Current Price / Asking Price</b> - Current listed price for the property.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Profit Margin</b> - Dollar amount of profit (Current Price - Cost Basis).", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Margin %</b> - Profit as a percentage of the asking price.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Markup %</b> - Profit as a percentage of the cost basis.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Price/Acre</b> - Current asking price divided by total acres.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Cost/Acre</b> - Cost basis divided by total acres.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Original Price / Original Listing Price</b> - Initial listing price when first brought to market.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>%OLP (Percent of Original Listing Price)</b> - Current price as a percentage of original listing price.", normal_style))
+    
+    story.append(Spacer(1, 10))
+    
+    # Time & Status Terms
+    story.append(Paragraph("<b>TIME & STATUS TERMS</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    story.append(Paragraph("<b>Days Held</b> - Total days from acquisition closing to today (or sale closing if sold).", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Average Days Held</b> - Mean of all Days Held values in the section.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Median Days Held</b> - Middle value of all Days Held when sorted (less affected by outliers).", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Price Reductions</b> - Number of price reductions (tracked by trailing digit of current price).", normal_style))
+    
+    story.append(Spacer(1, 10))
+    
+    # Status Categories
+    story.append(Paragraph("<b>STATUS CATEGORIES</b>", subsection_style))
+    story.append(Spacer(1, 6))
+    
+    story.append(Paragraph("<b>Purchased</b> - Property acquired but not yet listed for sale.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Listed</b> - Property actively marketed for sale.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Under Contract</b> - Property with executed purchase agreement, pending closing.", normal_style))
+    story.append(Spacer(1, 3))
+    story.append(Paragraph("<b>Off Market</b> - Property temporarily removed from active marketing.", normal_style))
+    
+    story.append(Spacer(1, 10))
+    
+    # Listing Types and Property Information side by side using a simple 2-column table
+    combined_data = [
         [Paragraph("<b>LISTING TYPES</b>", subsection_style), Paragraph("<b>PROPERTY INFORMATION</b>", subsection_style)],
+        ['', ''],  # Small spacing row
         [Paragraph("<b>Primary</b> - Main listing or property designation.", normal_style),
          Paragraph("<b>APN (Assessor's Parcel Number)</b> - Unique identifier assigned by county.", normal_style)],
         [Paragraph("<b>Secondary</b> - Alternative MLS listing or acreage-size variation of a primary property.", normal_style),
@@ -940,31 +959,20 @@ def generate_inventory_report_pdf(df):
          Paragraph("<b>Portfolio Margin %</b> - Overall profit margin for all properties in the section.", normal_style)],
     ]
     
-    # Create the definitions table with no visible borders
-    definitions_table = Table(definitions_data, colWidths=[3.6*inch, 3.6*inch])
-    definitions_table.setStyle(TableStyle([
-        # Section headers styling (bold, slightly larger)
+    combined_table = Table(combined_data, colWidths=[3.6*inch, 3.6*inch])
+    combined_table.setStyle(TableStyle([
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        
-        # NO GRID - remove all borders
-        ('GRID', (0, 0), (-1, -1), 0, colors.white),
-        
-        # Minimal padding for compact layout
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('GRID', (0, 0), (-1, -1), 0, colors.white),  # No borders
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-        
-        # Make section headers span both columns where appropriate
-        ('SPAN', (0, 0), (1, 0)),  # FINANCIAL TERMS
-        ('SPAN', (0, 7), (1, 7)),  # TIME & STATUS TERMS
-        ('SPAN', (0, 11), (1, 11)),  # STATUS CATEGORIES
     ]))
     
-    story.append(definitions_table)
+    story.append(combined_table)
     
     story.append(Spacer(1, 20))
     
